@@ -1,0 +1,347 @@
+{
+  "bebidas": [
+    {
+      "id": "cafes-calientes",
+      "name": "Cafés Calientes",
+      "items": [
+        {
+          "name": "Espresso",
+          "price": 8,
+          "desc": "Un shot concentrado de puro café.",
+          "emoji": "☕",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/espresso-1-160.webp",
+              "w600": "seleccion-2026/espresso-1-600.webp",
+              "w800": "seleccion-2026/espresso-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/espresso-2-160.webp",
+              "w600": "seleccion-2026/espresso-2-600.webp",
+              "w800": "seleccion-2026/espresso-2-800.webp"
+            }
+          ]
+        },
+        {
+          "name": "Americano",
+          "price": 10,
+          "desc": "Espresso diluido en agua caliente.",
+          "emoji": "☕",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/americano-1-160.webp",
+              "w600": "seleccion-2026/americano-1-600.webp",
+              "w800": "seleccion-2026/americano-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/americano-2-160.webp",
+              "w600": "seleccion-2026/americano-2-600.webp",
+              "w800": "seleccion-2026/americano-2-800.webp"
+            }
+          ]
+        },
+        {
+          "name": "Latte",
+          "price": 12,
+          "desc": "Espresso con abundante leche vaporizada y fina espuma.",
+          "emoji": "☕",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/latte-1-160.webp",
+              "w600": "seleccion-2026/latte-1-600.webp",
+              "w800": "seleccion-2026/latte-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/latte-2-160.webp",
+              "w600": "seleccion-2026/latte-2-600.webp",
+              "w800": "seleccion-2026/latte-2-800.webp"
+            }
+          ]
+        },
+        {
+          "name": "Cappuccino",
+          "slug": "cappuccino",
+          "price": 12,
+          "desc": "El clásico espumoso. Espresso, leche y una generosa capa de espuma aireada.",
+          "emoji": "☕",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/cappuccino-1-160.webp",
+              "w600": "seleccion-2026/cappuccino-1-600.webp",
+              "w800": "seleccion-2026/cappuccino-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/cappuccino-2-160.webp",
+              "w600": "seleccion-2026/cappuccino-2-600.webp",
+              "w800": "seleccion-2026/cappuccino-2-800.webp"
+            }
+          ]
+        },
+        {
+          "name": "Mocaccino",
+          "price": 14,
+          "desc": "Placer de chocolate. Espresso, leche y jarabe de chocolate.",
+          "emoji": "☕",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/mocaccino-1-160.webp",
+              "w600": "seleccion-2026/mocaccino-1-600.webp",
+              "w800": "seleccion-2026/mocaccino-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/mocaccino-2-160.webp",
+              "w600": "seleccion-2026/mocaccino-2-600.webp",
+              "w800": "seleccion-2026/mocaccino-2-800.webp"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cafes-frios",
+      "name": "Cafés Fríos",
+      "items": [
+        {
+          "name": "Iced Latte",
+          "price": 14,
+          "desc": "Espresso y leche fría servidos sobre hielo.",
+          "emoji": "🧊",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/iced-latte-1-160.webp",
+              "w600": "seleccion-2026/iced-latte-1-600.webp",
+              "w800": "seleccion-2026/iced-latte-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/iced-latte-2-160.webp",
+              "w600": "seleccion-2026/iced-latte-2-600.webp",
+              "w800": "seleccion-2026/iced-latte-2-800.webp"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cold-brew",
+      "name": "Cold Brew",
+      "items": [
+        {
+          "name": "Orange Cold Brew",
+          "price": 16,
+          "desc": "Café con zumo de naranja.",
+          "emoji": "🧊",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/orange-cold-brew-1-160.webp",
+              "w600": "seleccion-2026/orange-cold-brew-1-600.webp",
+              "w800": "seleccion-2026/orange-cold-brew-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/orange-cold-brew-2-160.webp",
+              "w600": "seleccion-2026/orange-cold-brew-2-600.webp",
+              "w800": "seleccion-2026/orange-cold-brew-2-800.webp"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frappes",
+      "name": "Frappés",
+      "items": [
+        {
+          "name": "Frappé Caramelo",
+          "price": 17,
+          "desc": "Shot de Café con leche, hielo, jarabe de caramelo y crema chantilly.",
+          "emoji": "🍦",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/frappe-caramelo-1-160.webp",
+              "w600": "seleccion-2026/frappe-caramelo-1-600.webp",
+              "w800": "seleccion-2026/frappe-caramelo-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/frappe-caramelo-2-160.webp",
+              "w600": "seleccion-2026/frappe-caramelo-2-600.webp",
+              "w800": "seleccion-2026/frappe-caramelo-2-800.webp"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "postres": [
+    {
+      "id": "pasteles",
+      "name": "Pasteles",
+      "items": [
+        {
+          "name": "Torta de Chocolate",
+          "price": 16,
+          "desc": "Queque húmedo de chocolate, relleno de manjar y fudge de olla. Cubierto en fudge y chocolate rallado, frutas de estación montadas.",
+          "emoji": "🍰",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/torta-de-chocolate-1-160.webp",
+              "w600": "seleccion-2026/torta-de-chocolate-1-600.webp",
+              "w800": "seleccion-2026/torta-de-chocolate-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/torta-de-chocolate-2-160.webp",
+              "w600": "seleccion-2026/torta-de-chocolate-2-600.webp",
+              "w800": "seleccion-2026/torta-de-chocolate-2-800.webp"
+            }
+          ]
+        },
+        {
+          "name": "Tarta de Frambuesa",
+          "price": 15,
+          "desc": "Base crocante sablé de almendras, relleno de frangipane de almendras y coulis de frutos rojos, crema pastelera y frambuesas.",
+          "emoji": "🥧",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/tarta-de-frambuesa-1-160.webp",
+              "w600": "seleccion-2026/tarta-de-frambuesa-1-600.webp",
+              "w800": "seleccion-2026/tarta-de-frambuesa-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/tarta-de-frambuesa-2-160.webp",
+              "w600": "seleccion-2026/tarta-de-frambuesa-2-600.webp",
+              "w800": "seleccion-2026/tarta-de-frambuesa-2-800.webp"
+            }
+          ]
+        },
+        {
+          "name": "Tres leches de Café",
+          "price": 13,
+          "desc": "Bizcocho húmedo de chocolate, embebido con almíbar de tres leches de café.",
+          "emoji": "🍰",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/tres-leches-de-cafe-1-160.webp",
+              "w600": "seleccion-2026/tres-leches-de-cafe-1-600.webp",
+              "w800": "seleccion-2026/tres-leches-de-cafe-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/tres-leches-de-cafe-2-160.webp",
+              "w600": "seleccion-2026/tres-leches-de-cafe-2-600.webp",
+              "w800": "seleccion-2026/tres-leches-de-cafe-2-800.webp"
+            }
+          ]
+        },
+        {
+          "name": "Carrot Cake",
+          "price": 15,
+          "desc": "Queque húmedo de zanahoria con dos capas de relleno de manjar de olla, cubierto de frosting de queso crema y nueces tostadas, frutas de estación montados.",
+          "emoji": "🍰",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/carrot-cake-1-160.webp",
+              "w600": "seleccion-2026/carrot-cake-1-600.webp",
+              "w800": "seleccion-2026/carrot-cake-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/carrot-cake-2-160.webp",
+              "w600": "seleccion-2026/carrot-cake-2-600.webp",
+              "w800": "seleccion-2026/carrot-cake-2-800.webp"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dulces",
+      "name": "Dulces",
+      "items": [
+        {
+          "name": "Alfajor Chocolúcuma",
+          "price": 10,
+          "desc": "Base de galleta de chocolate rellena con manjar de lúcuma bañado en cobertura de chocolate.",
+          "emoji": "🍫",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/alfajor-chocolucuma-1-160.webp",
+              "w600": "seleccion-2026/alfajor-chocolucuma-1-600.webp",
+              "w800": "seleccion-2026/alfajor-chocolucuma-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/alfajor-chocolucuma-2-160.webp",
+              "w600": "seleccion-2026/alfajor-chocolucuma-2-600.webp",
+              "w800": "seleccion-2026/alfajor-chocolucuma-2-800.webp"
+            }
+          ]
+        },
+        {
+          "name": "Trenza de Manzana",
+          "price": 14,
+          "desc": "Base en masa hojaldre, relleno de compota de manzana con crema pastelera.",
+          "emoji": "🥐",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/trenza-de-manzana-1-160.webp",
+              "w600": "seleccion-2026/trenza-de-manzana-1-600.webp",
+              "w800": "seleccion-2026/trenza-de-manzana-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/trenza-de-manzana-2-160.webp",
+              "w600": "seleccion-2026/trenza-de-manzana-2-600.webp",
+              "w800": "seleccion-2026/trenza-de-manzana-2-800.webp"
+            }
+          ]
+        },
+        {
+          "name": "Brownie",
+          "price": 10,
+          "desc": "Sabor intenso a chocolate al 60% de cacao, chocolate y pecanas tostadas.",
+          "emoji": "🍫",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/brownie-1-160.webp",
+              "w600": "seleccion-2026/brownie-1-600.webp",
+              "w800": "seleccion-2026/brownie-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/brownie-2-160.webp",
+              "w600": "seleccion-2026/brownie-2-600.webp",
+              "w800": "seleccion-2026/brownie-2-800.webp"
+            }
+          ]
+        },
+        {
+          "name": "William Roll",
+          "price": 10,
+          "desc": "Masa de croissant con crema mousseline de almendra.",
+          "emoji": "🥐",
+          "hasModifiers": false,
+          "gallery": [
+            {
+              "w160": "seleccion-2026/william-roll-1-160.webp",
+              "w600": "seleccion-2026/william-roll-1-600.webp",
+              "w800": "seleccion-2026/william-roll-1-800.webp"
+            },
+            {
+              "w160": "seleccion-2026/william-roll-2-160.webp",
+              "w600": "seleccion-2026/william-roll-2-600.webp",
+              "w800": "seleccion-2026/william-roll-2-800.webp"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

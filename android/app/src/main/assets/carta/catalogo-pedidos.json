@@ -1,0 +1,1452 @@
+{
+  "collections": [
+    {
+      "id": "cafe",
+      "name": "Café de especialidad",
+      "sections": [
+        {
+          "id": "cafe-cafes",
+          "name": "Cafés",
+          "items": [
+            {
+              "id": "espresso",
+              "name": "ESPRESSO",
+              "price": 8,
+              "desc": "Un shot concentrado de puro café."
+            },
+            {
+              "id": "cortado",
+              "name": "CORTADO",
+              "price": 9,
+              "desc": "El equilibrio perfecto. Espresso con un toque de leche para suavizar la intensidad."
+            },
+            {
+              "id": "macchiato",
+              "name": "MACCHIATO",
+              "price": 9,
+              "desc": "El \"manchado\". Espresso con una cucharada de espuma de leche sutil."
+            },
+            {
+              "id": "americano",
+              "name": "AMERICANO",
+              "price": 10,
+              "desc": "Espresso diluido en agua caliente."
+            },
+            {
+              "id": "latte",
+              "name": "LATTE",
+              "price": 12,
+              "desc": "Espresso con abundante leche vaporizada y fina espuma."
+            },
+            {
+              "id": "matcha-latte",
+              "name": "MATCHA LATTE",
+              "price": 12,
+              "desc": "Vibrante té de Matcha con leche."
+            },
+            {
+              "id": "flat-white",
+              "name": "FLAT WHITE",
+              "price": 12,
+              "desc": "Concentración aterciopelada. Doble shot con microespuma de leche."
+            },
+            {
+              "id": "capuccino",
+              "name": "CAPUCCINO",
+              "price": 12,
+              "desc": "El clásico espumoso. Espresso, leche y una generosa capa de espuma aireada.",
+              "slug": "cappuccino",
+              "hasModifiers": false
+            },
+            {
+              "id": "capuccino-con-crema",
+              "name": "CAPUCCINO CON CREMA",
+              "price": 14,
+              "desc": "Nuestro Cappuccino coronado con suave crema batida."
+            },
+            {
+              "id": "mocaccino",
+              "name": "MOCACCINO",
+              "price": 14,
+              "desc": "Placer de chocolate. Espresso, leche y jarabe de chocolate."
+            },
+            {
+              "id": "chocolate",
+              "name": "CHOCOLATE",
+              "price": 14,
+              "desc": "Cremosa y reconfortante bebida de chocolate caliente."
+            },
+            {
+              "id": "chocolate-con-crema",
+              "name": "CHOCOLATE CON CREMA",
+              "price": 15,
+              "desc": "Nuestro chocolate caliente con un toque de crema batida."
+            },
+            {
+              "id": "caramel-capuccino",
+              "name": "CARAMEL CAPUCCINO",
+              "price": 15,
+              "desc": "Cappuccino clásico con el toque irresistible de caramelo."
+            },
+            {
+              "id": "descafeinado",
+              "name": "DESCAFEINADO",
+              "price": 2,
+              "desc": "Adicional: +S/2."
+            }
+          ]
+        },
+        {
+          "id": "cafe-cafes-frios",
+          "name": "Cafés fríos",
+          "items": [
+            {
+              "id": "iced-americano",
+              "name": "ICED AMERICANO",
+              "price": 14,
+              "desc": "Espresso sobre hielo y agua fría. "
+            },
+            {
+              "id": "iced-latte",
+              "name": "ICED LATTE",
+              "price": 14,
+              "desc": "Espresso y leche fría servidos sobre hielo."
+            },
+            {
+              "id": "iced-matcha-latte",
+              "name": "ICED MATCHA LATTE",
+              "price": 14,
+              "desc": "Té de Matcha mezclado con leche y hielo."
+            },
+            {
+              "id": "iced-capuccino",
+              "name": "ICED CAPUCCINO",
+              "price": 14,
+              "desc": "Espresso, leche fría y una capa de espuma ligera sobre hielo."
+            },
+            {
+              "id": "affogato-vainilla",
+              "name": "AFFOGATO VAINILLA",
+              "price": 14,
+              "desc": "Helado de vainilla \"ahogado\" en un shot de espresso caliente. "
+            },
+            {
+              "id": "orange-coffee",
+              "name": "ORANGE COFFEE",
+              "price": 15,
+              "desc": "Espresso con un refrescante zumo de naranja. "
+            },
+            {
+              "id": "iced-mocaccino",
+              "name": "ICED MOCACCINO",
+              "price": 16,
+              "desc": "Espresso, chocolate y leche, servidos sobre hielo."
+            },
+            {
+              "id": "iced-caramel-capuccino",
+              "name": "ICED CARAMEL CAPUCCINO",
+              "price": 16,
+              "desc": "El clásico espumoso. Espresso, leche y una generosa capa de espuma aireada."
+            }
+          ]
+        },
+        {
+          "id": "cafe-cold-brew",
+          "name": "Cold Brew",
+          "items": [
+            {
+              "id": "cold-brew-clasico",
+              "name": "COLD BREW CLÁSICO",
+              "price": 16,
+              "desc": "Café extraido en frío, servido con hielo."
+            },
+            {
+              "id": "passion-cold-brew",
+              "name": "PASSION COLD BREW",
+              "price": 16,
+              "desc": "Cold Brew con maracuyá. "
+            },
+            {
+              "id": "cold-brew-en-las-rocas",
+              "name": "COLD BREW EN LAS ROCAS",
+              "price": 16,
+              "desc": "Cold Brew puro, servido con hielo."
+            },
+            {
+              "id": "exotic-cold-brew",
+              "name": "EXOTIC COLD BREW",
+              "price": 16,
+              "desc": "Café con naranja y maracuyá. "
+            },
+            {
+              "id": "orange-cold-brew",
+              "name": "ORANGE COLD BREW",
+              "price": 16,
+              "desc": "Café con zumo de naranja."
+            },
+            {
+              "id": "hibiscus-cold-brew",
+              "name": "HIBISCUS COLD BREW",
+              "price": 16,
+              "desc": "Cold Brew con infusión floral hibisco."
+            }
+          ]
+        },
+        {
+          "id": "cafe-frappes",
+          "name": "Frappés",
+          "items": [
+            {
+              "id": "frappe-coffee",
+              "name": "FRAPPE COFFEE",
+              "price": 17,
+              "desc": "Shot de Café con leche, hielo y crema chantilly."
+            },
+            {
+              "id": "frappe-caramelo",
+              "name": "FRAPPE CARAMELO",
+              "price": 17,
+              "desc": "Shot de café con leche, hielo, jarabe de caramelo y crema chantilly."
+            },
+            {
+              "id": "frappe-moca",
+              "name": "FRAPPE MOCA",
+              "price": 17,
+              "desc": "Shot de Café, chocolate, leche, hielo y crema chantilly."
+            },
+            {
+              "id": "frappe-algarrobina",
+              "name": "FRAPPE ALGARROBINA",
+              "price": 17,
+              "desc": "Tradicional algarrobina con un shot de café, leche, hielo y crema chantilly."
+            },
+            {
+              "id": "frappe-oreo",
+              "name": "FRAPPE OREO",
+              "price": 17,
+              "desc": "Base dulce de galletas Oreo con leche, hielo y crema chantilly."
+            },
+            {
+              "id": "frappe-de-mango",
+              "name": "FRAPPE DE MANGO",
+              "price": 17,
+              "desc": "Batido refrescante de mango, leche, hielo, manjar blanco y crema chantily."
+            },
+            {
+              "id": "frappe-de-fresa",
+              "name": "FRAPPE DE FRESA",
+              "price": 17,
+              "desc": "Batido dulce de fresas con leche, hielo, coulis de fresa y crema chantilly."
+            },
+            {
+              "id": "frappe-william",
+              "name": "FRAPPE WILLIAM",
+              "price": 20,
+              "desc": "Batido especial con helado de vainilla, blend, leche, hielo y crema chantilly."
+            },
+            {
+              "id": "milk-shake",
+              "name": "MILK SHAKE",
+              "price": 18,
+              "desc": "Sabores de helado a elección. Hecho con leche, chantilly, cereza y chocolate fudge."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "desayuno",
+      "name": "Desayuno",
+      "sections": [
+        {
+          "id": "desayuno-brunch",
+          "name": "Brunch",
+          "items": [
+            {
+              "id": "desayuno-americano",
+              "name": "DESAYUNO AMERICANO",
+              "price": 30,
+              "desc": "Huevos fritos, crispy bacon, chorizos cocktail, tostadas multisemillas en mantequilla, miel de Oxapampa. Acompañado de café americano y jugo natural de estación."
+            },
+            {
+              "id": "desayuno-huachano",
+              "name": "DESAYUNO HUACHANO",
+              "price": 28,
+              "desc": "Salchicha huachana, tamal de pollo o chancho, sarza criolla y pan francés. Acompañado de café americano y jugo natural de estación."
+            },
+            {
+              "id": "lomito-al-jugo",
+              "name": "LOMITO AL JUGO",
+              "price": 32,
+              "desc": "Lomo fino y vegetales al wok en salsa a base de sillao, pan francés. Acompañado de café americano y jugo natural de estación."
+            },
+            {
+              "id": "desayuno-energetico",
+              "name": "DESAYUNO ENERGETICO",
+              "price": 25,
+              "desc": "Palta fresca, huevos fritos, y tostadas multisemillas en mantequilla. Acompañado de café americano y jugo natural de estación."
+            },
+            {
+              "id": "omelete-william",
+              "name": "OMELETE WILLIAM",
+              "price": 26,
+              "desc": "Omelette cremoso relleno de cebolla blanca, tomate cherry, champiñones y mozzarella, tostadas multisemillas en mantequilla. Acompañados de café americano y jugo natural de estación."
+            },
+            {
+              "id": "omelette-clasico",
+              "name": "OMELETTE CLASICO",
+              "price": 24,
+              "desc": "Omelette cremoso relleno de jamón y queso, tostadas multisemillas en mantequilla. Acompañados de café americano y jugo natural de estación."
+            },
+            {
+              "id": "waffle-de-estacion",
+              "name": "WAFFLE DE ESTACION",
+              "price": 23,
+              "desc": "Waffle clásico, frutas de estación, menta, azúcar impalpable y miel de Oxapampa."
+            }
+          ]
+        },
+        {
+          "id": "desayuno-panes-de-la-casa",
+          "name": "Panes de la casa",
+          "items": [
+            {
+              "id": "pan-extra-frances",
+              "name": "PAN EXTRA FRANCES",
+              "price": 1,
+              "desc": "Pan francés, 2 unidades."
+            },
+            {
+              "id": "pan-ciabbatta-normal",
+              "name": "PAN CIABBATTA NORMAL",
+              "price": 2,
+              "desc": "Pan ciabatta, 2 unidades."
+            },
+            {
+              "id": "pan-extra-brioche",
+              "name": "PAN EXTRA BRIOCHE",
+              "price": 2,
+              "desc": "Pan brioche, 1 unidad."
+            },
+            {
+              "id": "pan-extra-chapla",
+              "name": "PAN EXTRA CHAPLA",
+              "price": 2,
+              "desc": "Pan chapla, 5 unidades."
+            },
+            {
+              "id": "pan-campesino",
+              "name": "PAN CAMPESINO",
+              "price": 3.5,
+              "desc": "Pan campesino, 3 unidades."
+            },
+            {
+              "id": "croissant-mantequilla",
+              "name": "CROISSANT MANTEQUILLA",
+              "price": 6,
+              "desc": "Croissant, 1 unidad."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "comida",
+      "name": "Comida",
+      "sections": [
+        {
+          "id": "comida-sanguches",
+          "name": "Sánguches",
+          "items": [
+            {
+              "id": "club-sandwich",
+              "name": "CLUB SANDWICH",
+              "price": 38,
+              "desc": "Pan pullman, lechuga, tomate, mousse de pollo y mayo, jamón, queso edam, huevo frito, bacon, con papitas de la casa."
+            },
+            {
+              "id": "asado-de-pejerrey",
+              "name": "ASADO DE PEJERREY",
+              "price": 24,
+              "desc": "Pan francés, lechuga orgánica, clásico de asado de res, mayo de la casa, palta tatemada y sarza criolla."
+            },
+            {
+              "id": "chicharron",
+              "name": "CHICHARRON",
+              "price": 24,
+              "desc": "Panceta de cerdo, camote frito, sarza criolla y hierba buena, todo en nuestro pan francés."
+            },
+            {
+              "id": "pollo-palteado",
+              "name": "POLLO PALTEADO",
+              "price": 23,
+              "desc": "Pan ciabatta, lechuga orgánica, filete de pollo, alioli, palta tatemada, aceite de oliva."
+            },
+            {
+              "id": "butifarra",
+              "name": "BUTIFARRA",
+              "price": 21,
+              "desc": "Pan francés, jamón del país artesanal, alioli y sarza criolla."
+            },
+            {
+              "id": "croissant-pollo",
+              "name": "CROISSANT POLLO",
+              "price": 20,
+              "desc": "Mousse de pollo en mayo, lechuga orgánica y tierra de pecanas."
+            },
+            {
+              "id": "mixto-cheddar",
+              "name": "MIXTO CHEDDAR",
+              "price": 18,
+              "desc": "Clásico de Jamón, queso edam, cheddar y huevo en pan campesino."
+            }
+          ]
+        },
+        {
+          "id": "comida-hamburguesas",
+          "name": "Hamburguesas",
+          "items": [
+            {
+              "id": "classic-american-burguer",
+              "name": "CLASSIC AMERICAN BURGUER",
+              "price": 27,
+              "desc": "Pan brioche, mayodijon, pickles, lechuga, tomate, cebolla, burger 150gr y papas cajún."
+            },
+            {
+              "id": "angus-cheddar",
+              "name": "ANGUS CHEDDAR",
+              "price": 42,
+              "desc": "Pan brioche, Alioli, burger Angus 200gr, cebolla caramelizada, cheddar, bacon y papas cajún."
+            }
+          ]
+        },
+        {
+          "id": "comida-salados",
+          "name": "Salados",
+          "items": [
+            {
+              "id": "tamal-de-pollo",
+              "name": "TAMAL DE POLLO",
+              "price": 11,
+              "desc": "Masa de maíz rellena con trozos de pollo, envuelto en hojas de plátano."
+            },
+            {
+              "id": "tamal-de-chancho",
+              "name": "TAMAL DE CHANCHO",
+              "price": 11,
+              "desc": "Masa de maíz rellena con trozos de chancho, envuelto en hojas de plátano."
+            },
+            {
+              "id": "empanada-de-carne",
+              "name": "EMPANADA DE CARNE",
+              "price": 11,
+              "desc": "Masa horneada rellena de guiso de carne de res."
+            },
+            {
+              "id": "empanada-de-pollo",
+              "name": "EMPANADA DE POLLO",
+              "price": 11,
+              "desc": "Masa horneada rellena de guiso de pollo."
+            },
+            {
+              "id": "pastel-de-acelga",
+              "name": "PASTEL DE ACELGA",
+              "price": 13,
+              "desc": "Tarta horneada rellena de huevo, crema y acelga salteada."
+            }
+          ]
+        },
+        {
+          "id": "comida-adicionales",
+          "name": "Adicionales",
+          "items": [
+            {
+              "id": "side-de-ensalada",
+              "name": "SIDE DE ENSALADA",
+              "price": 14,
+              "desc": "Lechuga, tomate, kiuri, zanahoria, palta."
+            },
+            {
+              "id": "side-de-arroz",
+              "name": "SIDE DE ARROZ",
+              "price": 6,
+              "desc": "Guarnición de arroz criollo con choclito"
+            },
+            {
+              "id": "choclitos-ribs",
+              "name": "CHOCLITOS RIBS",
+              "price": 7,
+              "desc": "Tiras de choclo salteados en mantequilla."
+            },
+            {
+              "id": "side-papas-nativas",
+              "name": "SIDE PAPAS NATIVAS",
+              "price": 8,
+              "desc": "Papa amarilla en seasoned salt"
+            },
+            {
+              "id": "side-de-papa-tumbay",
+              "name": "SIDE DE PAPA TUMBAY",
+              "price": 10,
+              "desc": "Papas nativas en seasoned cajún"
+            },
+            {
+              "id": "filete-de-pollo",
+              "name": "FILETE DE POLLO",
+              "price": 10,
+              "desc": ""
+            },
+            {
+              "id": "camote",
+              "name": "CAMOTE",
+              "price": 8,
+              "desc": ""
+            },
+            {
+              "id": "palta",
+              "name": "PALTA",
+              "price": 6,
+              "desc": ""
+            },
+            {
+              "id": "huevo",
+              "name": "HUEVO",
+              "price": 2.5,
+              "desc": ""
+            }
+          ]
+        },
+        {
+          "id": "comida-entradas",
+          "name": "Entradas",
+          "items": [
+            {
+              "id": "anticuchos-de-lomo-fino",
+              "name": "ANTICUCHOS DE LOMO FINO",
+              "price": 35,
+              "desc": "Trozos de lomo fino adobados en salsa a base de ají panca, choclitos ribs, papas doradas."
+            },
+            {
+              "id": "salchiamkha",
+              "name": "SALCHIAMKHA",
+              "price": 23,
+              "desc": "Mix de papas andinas, salchicha Frank, chorizos cocktail, huevos de codorniz y mayo de hierbas andinas."
+            },
+            {
+              "id": "rollitos-della-nonna",
+              "name": "ROLLITOS DELLA NONNA",
+              "price": 28,
+              "desc": "Rollos fritos rellenos de ragú de osobuco a la Italiana y tropezones de queso mozzarella."
+            },
+            {
+              "id": "rollitos-de-quesos-andinos",
+              "name": "ROLLITOS DE QUESOS ANDINOS",
+              "price": 24,
+              "desc": "Rollos fritos rellenos de quesos andinos y salsa blanca."
+            },
+            {
+              "id": "chicken-tender",
+              "name": "CHICKEN TENDER",
+              "price": 32,
+              "desc": "Papas nativas, tenders de pollo crispy, también pídelas en BBQ y BUFFALO"
+            },
+            {
+              "id": "wings",
+              "name": "WINGS",
+              "price": 27,
+              "desc": "Papas nativas, alitas clásicas, también pídelas en salsa BBQ o BUFFALO."
+            }
+          ]
+        },
+        {
+          "id": "comida-sopitas-de-la-casa",
+          "name": "Sopitas de la casa",
+          "items": [
+            {
+              "id": "sopa-de-angel",
+              "name": "SOPA DE ANGEL",
+              "price": 28,
+              "desc": "Sopa ligera a base de pechuguita, zanahoria y apio, papita amarilla y fideo de ángel."
+            },
+            {
+              "id": "sopa-criolla",
+              "name": "SOPA CRIOLLA",
+              "price": 30,
+              "desc": "Base criolla con carne picada, tomate y ají panca, fideos de ángel, leche evaporada y huevo escalfado."
+            }
+          ]
+        },
+        {
+          "id": "comida-ensaladas",
+          "name": "Ensaladas",
+          "items": [
+            {
+              "id": "ensalada-cesar",
+              "name": "ENSALADA CESAR",
+              "price": 32,
+              "desc": "Lechuga romana orgánica, crotones, parmesano, pechuga de pollo, bacon, aderezo a base de anchoas."
+            },
+            {
+              "id": "ensalada-william",
+              "name": "ENSALADA WILLIAM",
+              "price": 32,
+              "desc": "Mix de lechugas orgánicas, tomate cherry, zanahoria bb, kiuri, aceitunas verdes, choclito, queso fresco y vinagreta de la casa."
+            }
+          ]
+        },
+        {
+          "id": "comida-platos-de-fondo",
+          "name": "Platos de fondo",
+          "items": [
+            {
+              "id": "arroz-norteno-y-magret-de-pato",
+              "name": "ARROZ NORTEÑO Y MAGRET DE PATO",
+              "price": 57,
+              "desc": "Arroz meloso de pesto norteño de culantro y loche, pecho de pato en término, vegetales orgánicos, chalaquita, huevitos a la inglesa y salsa huancaína."
+            },
+            {
+              "id": "salmon-y-pure-al-pesto",
+              "name": "SALMON Y PURE AL PESTO",
+              "price": 64,
+              "desc": "Puré de papa y pesto criollo, coliflor asado, espárragos y salmón en salsa menier de la casa."
+            },
+            {
+              "id": "seco-de-res-short-rib-y-pallares-de-ocucaje",
+              "name": "SECO DE RES (SHORT RIB) Y PALLARES DE OCUCAJE",
+              "price": 49,
+              "desc": "Hummus de pallar de Ocucaje, short rib en cocción de 4hrs en pesto de culantro y loche, y chalaquita montada."
+            },
+            {
+              "id": "pernil-de-cabrito",
+              "name": "PERNIL DE CABRITO",
+              "price": 55,
+              "desc": "Pernil de cabrito de larga cocción, frejol bayo, porción de arroz criollo."
+            },
+            {
+              "id": "pollada",
+              "name": "POLLADA",
+              "price": 35,
+              "desc": "Cuarto de pollo en adobo clásico a base de panca y chicha, papa dorada, choclito salteado y side de ensalada."
+            },
+            {
+              "id": "aji-de-toda-la-vida",
+              "name": "AJI DE TODA LA VIDA",
+              "price": 31,
+              "desc": "Pollo deshilachado en crema de ají amarillo, pan, leche, base de papa amarilla, tropezones de pecanas, tierra de aceituna, huevo de codorniz y parmesano."
+            },
+            {
+              "id": "chaufa-regional",
+              "name": "CHAUFA REGIONAL",
+              "price": 39,
+              "desc": "Arroz frito al wok, chorizo, cecina artesanal y su toque de pachikay de mishikina, tropezones de plátano."
+            },
+            {
+              "id": "pure-con-asado-de-la-abuela",
+              "name": "PURE CON ASADO DE LA ABUELA",
+              "price": 42,
+              "desc": "Asado de pejerrey a la antigua, zanahoria bb, puré de papa y arroz criollo."
+            },
+            {
+              "id": "arroz-con-pato-norteno",
+              "name": "ARROZ CON PATO NORTEÑO",
+              "price": 51,
+              "desc": "Arroz meloso de pesto norteño de culantro y loche, pierna de pato en su propio guiso, vegetales orgánicos, chalaquita, huevitos a la inglesa y salsa huancaína."
+            },
+            {
+              "id": "lomo-saltado",
+              "name": "LOMO SALTADO",
+              "price": 49,
+              "desc": "Lomo fino y vegetales salteado al wok, papas nativas y guarnición de arroz criollo"
+            }
+          ]
+        },
+        {
+          "id": "comida-pastas",
+          "name": "Pastas",
+          "items": [
+            {
+              "id": "tortiglioni-al-pesto-con-sabana-de-lomo",
+              "name": "TORTIGLIONI AL PESTO CON SABANA DE LOMO",
+              "price": 45,
+              "desc": "Pasta en salsa pesto criollo de la casa y sábana de lomo fino empanizado, dorado en mantequilla y aceite de oliva."
+            },
+            {
+              "id": "fetuccini-a-la-huancainacon-lomo",
+              "name": "FETUCCINI A LA HUANCAINACON LOMO",
+              "price": 49,
+              "desc": "Fetuccini en crema huancaína y nuestro tradicional lomo saltado de la casa."
+            },
+            {
+              "id": "tagliatelle-a-la-bolognesa",
+              "name": "TAGLIATELLE A LA BOLOGNESA",
+              "price": 35,
+              "desc": "Pasta cinta y ragú de carne de res, cerdo y tomate, parmesano, aceite de oliva."
+            }
+          ]
+        },
+        {
+          "id": "comida-menu-kids",
+          "name": "Menú Kids",
+          "items": [
+            {
+              "id": "spaguetti-a-lo-alfredo",
+              "name": "SPAGUETTI A LO ALFREDO",
+              "price": 23,
+              "desc": "Spaguetti en salsa bechamel, cubos de jamón, nuez moscada y parmesano."
+            },
+            {
+              "id": "boli-pollo",
+              "name": "BOLI POLLO",
+              "price": 22,
+              "desc": "Pollo crispy y papas fritas, también pídelas en salsa BBQ."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "postres",
+      "name": "Pastelería fina",
+      "sections": [
+        {
+          "id": "postres-pasteles",
+          "name": "Pasteles",
+          "items": [
+            {
+              "id": "tarta-de-fresa",
+              "name": "TARTA DE FRESA",
+              "price": 15,
+              "desc": "Base crocante sablé de almendras, relleno de frangipane de almendras y coulis de frutos rojos, crema pastelera y fresas."
+            },
+            {
+              "id": "tarta-de-frambuesa",
+              "name": "TARTA DE FRAMBUESA",
+              "price": 15,
+              "desc": "Base crocante sablé de almendras, relleno de frangipane de almendras y coulis de frutos rojos, crema pastelera y frambuesas."
+            },
+            {
+              "id": "tarta-de-arandanos",
+              "name": "TARTA DE ARANDANOS",
+              "price": 15,
+              "desc": "Base crocante sablé de almendras, relleno de frangipane de almendras y coulis de frutos rojos, crema pastelera y arándanos."
+            },
+            {
+              "id": "carrot-cake",
+              "name": "CARROT CAKE",
+              "price": 15,
+              "desc": "Queque húmedo de zanahoria con dos capas de relleno de manjar de olla cubierto de frosting de queso crema y nueces tostadas, frutas de estación montados."
+            },
+            {
+              "id": "3-leches-clasico",
+              "name": "3 LECHES CLASICO",
+              "price": 13,
+              "desc": "Bizcocho húmedo de vainilla, embebido con almíbar de tres leches"
+            },
+            {
+              "id": "3-leches-de-cafe",
+              "name": "3 LECHES DE CAFE",
+              "price": 13,
+              "desc": "Bizcocho húmedo de chocolate, embebido con almíbar de tres leches de café"
+            },
+            {
+              "id": "torta-de-chocolate",
+              "name": "TORTA DE CHOCOLATE",
+              "price": 16,
+              "desc": "Queque húmedo de chocolate, relleno de manjar y fudge de olla. Cubierto en fudge y chocolate rayado, frutas de estación montadas."
+            },
+            {
+              "id": "pie-de-limon",
+              "name": "PIE DE LIMON",
+              "price": 14,
+              "desc": "Base de galleta, relleno cremoso de limón y merengue italiano."
+            },
+            {
+              "id": "cheesecake-de-maracuya",
+              "name": "CHEESECAKE DE MARACUYA",
+              "price": 14,
+              "desc": "Base de galleta, mousse de queso crema y coulis de maracuyá."
+            },
+            {
+              "id": "cheescake-de-frutos-rojos",
+              "name": "CHEESCAKE DE FRUTOS ROJOS",
+              "price": 14,
+              "desc": "Base de galleta, mousse de queso crema y coulis de frutos rojos."
+            },
+            {
+              "id": "cheescake-de-fresa",
+              "name": "CHEESCAKE DE FRESA",
+              "price": 14,
+              "desc": "Base de galleta, mousse de queso crema y coulis de fresas."
+            }
+          ]
+        },
+        {
+          "id": "postres-dulces",
+          "name": "Dulces",
+          "items": [
+            {
+              "id": "tiramisu",
+              "name": "TIRAMISU",
+              "price": 18,
+              "desc": "Capas de biscotela embebido en almíbar café con crema mascarpone."
+            },
+            {
+              "id": "trenza-de-manzana-y-canela",
+              "name": "TRENZA DE MANZANA Y CANELA",
+              "price": 14,
+              "desc": "Base en masa hojaldre, relleno de compota de manzana con crema pastelera."
+            },
+            {
+              "id": "william-roll",
+              "name": "WILLIAM ROLL",
+              "price": 10,
+              "desc": "Masa de croissant con crema mousseline de almendra."
+            },
+            {
+              "id": "brownie",
+              "name": "BROWNIE",
+              "price": 10,
+              "desc": "Sabor intenso a chocolate al 60% de cacao, chocolate y pecanas tostadas."
+            },
+            {
+              "id": "crema-volteada",
+              "name": "CREMA VOLTEADA",
+              "price": 12,
+              "desc": "Crema a base de huevos y leche bañado en caramelo."
+            },
+            {
+              "id": "keke-de-limon-y-arandanos",
+              "name": "KEKE DE LIMON Y ARANDANOS",
+              "price": 9,
+              "desc": "Queque húmedo de limón y arándanos, topping de glasé y arándanos frescos."
+            },
+            {
+              "id": "alfajor-de-chocolucuma",
+              "name": "ALFAJOR DE CHOCOLUCUMA",
+              "price": 10,
+              "desc": "Base de galleta de chocolate rellena con manjar de lúcuma bañado en cobertura de chocolate."
+            },
+            {
+              "id": "alfajor-clasico",
+              "name": "ALFAJOR CLASICO",
+              "price": 8,
+              "desc": "Base de galleta suave rellena con manjar de la casa."
+            },
+            {
+              "id": "queque-de-choclo",
+              "name": "QUEQUE DE CHOCLO",
+              "price": 9,
+              "desc": "Queque casero a base de choclo con nuestra receta especial y mix de quesos."
+            }
+          ]
+        },
+        {
+          "id": "postres-postres-con-helado",
+          "name": "Postres con helado",
+          "items": [
+            {
+              "id": "banana-split",
+              "name": "BANANA SPLIT",
+              "price": 29,
+              "desc": "3 bolas de helado artesanal, plátano, chantilly, cerezas y chocolate fudge."
+            },
+            {
+              "id": "copa-tulipan",
+              "name": "COPA TULIPAN",
+              "price": 26,
+              "desc": "3 bolas de helado artesanal a elección, chantilly, cerezas, habano de galleta y chocolate fudge."
+            },
+            {
+              "id": "brownie-obsesion",
+              "name": "BROWNIE OBSESION",
+              "price": 19,
+              "desc": "Brownie con 1 bola de helado artesanal."
+            },
+            {
+              "id": "delicia-de-chocolate",
+              "name": "DELICIA DE CHOCOLATE",
+              "price": 21,
+              "desc": "Torta de chocolate con bola de helado artesanal."
+            },
+            {
+              "id": "ice-four-milk-clasico",
+              "name": "ICE FOUR MILK CLASICO",
+              "price": 20,
+              "desc": "3 leches clásico con 1 bola de helado de vainilla artesanal."
+            },
+            {
+              "id": "ice-four-milk-cafe",
+              "name": "ICE FOUR MILK CAFE",
+              "price": 20,
+              "desc": "3 leches de café con 1 bola de helado de vainilla artesanal."
+            },
+            {
+              "id": "ice-cake",
+              "name": "ICE CAKE",
+              "price": 19,
+              "desc": "Queque de la casa de limón y arándanos con 1 bola de helado artesanal."
+            },
+            {
+              "id": "waflfle-con-helado",
+              "name": "WAFLFLE CON HELADO",
+              "price": 25,
+              "desc": "Waffles clásicos acompañados de una bola de helado."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "helados",
+      "name": "Helados",
+      "sections": [
+        {
+          "id": "helados-helado-artesanal",
+          "name": "Helado artesanal",
+          "items": [
+            {
+              "id": "1-bola-de-helado-artesanal",
+              "name": "1 BOLA DE HELADO ARTESANAL",
+              "price": 10,
+              "desc": "Sabores a elección: Yogurt Amarena, Menta Chips, Nutella, Chocolate, Camu Camu, Queso Helado, Coco, Vainilla, Pistacho, Frutos del Bosque, Avellanas, Mango, Maracuyá, Fresa, Stracciatella y Café. Pistacho: recargo de S/2 indicado en la carta."
+            },
+            {
+              "id": "2-bolas-de-helado-artesanal",
+              "name": "2 BOLAS DE HELADO ARTESANAL",
+              "price": 19,
+              "desc": "Sabores a elección: Yogurt Amarena, Menta Chips, Nutella, Chocolate, Camu Camu, Queso Helado, Coco, Vainilla, Pistacho, Frutos del Bosque, Avellanas, Mango, Maracuyá, Fresa, Stracciatella y Café. Pistacho: recargo de S/2 indicado en la carta."
+            },
+            {
+              "id": "3-bolas-de-helado-artesanal",
+              "name": "3 BOLAS DE HELADO ARTESANAL",
+              "price": 25,
+              "desc": "Sabores a elección: Yogurt Amarena, Menta Chips, Nutella, Chocolate, Camu Camu, Queso Helado, Coco, Vainilla, Pistacho, Frutos del Bosque, Avellanas, Mango, Maracuyá, Fresa, Stracciatella y Café. Pistacho: recargo de S/2 indicado en la carta."
+            },
+            {
+              "id": "1-2-litro-de-helado-artesanal",
+              "name": "1/2 LITRO DE HELADO ARTESANAL",
+              "price": 40,
+              "desc": "Sabores a elección: Yogurt Amarena, Menta Chips, Nutella, Chocolate, Camu Camu, Queso Helado, Coco, Vainilla, Pistacho, Frutos del Bosque, Avellanas, Mango, Maracuyá, Fresa, Stracciatella y Café. Pistacho: recargo de S/2 indicado en la carta."
+            },
+            {
+              "id": "1-litro-de-helado-artesanal",
+              "name": "1 LITRO DE HELADO ARTESANAL",
+              "price": 70,
+              "desc": "Sabores a elección: Yogurt Amarena, Menta Chips, Nutella, Chocolate, Camu Camu, Queso Helado, Coco, Vainilla, Pistacho, Frutos del Bosque, Avellanas, Mango, Maracuyá, Fresa, Stracciatella y Café. Pistacho: recargo de S/2 indicado en la carta."
+            },
+            {
+              "id": "toppings-a-eleccion",
+              "name": "TOPPINGS (A elección)",
+              "price": 2,
+              "desc": "Adicional +S/2: wafer, Oreo, brownie, grageas, marshmallows o ChinChin."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bebidas",
+      "name": "Bebidas",
+      "sections": [
+        {
+          "id": "bebidas-frozen",
+          "name": "Frozen",
+          "items": [
+            {
+              "id": "limonada-frozen",
+              "name": "LIMONADA FROZEN",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "maracuya-frozen",
+              "name": "MARACUYA FROZEN",
+              "price": 16,
+              "desc": ""
+            },
+            {
+              "id": "fresa-frozen",
+              "name": "FRESA FROZEN",
+              "price": 16,
+              "desc": ""
+            },
+            {
+              "id": "mango-frozen",
+              "name": "MANGO FROZEN",
+              "price": 16,
+              "desc": ""
+            },
+            {
+              "id": "pina-frozen",
+              "name": "PIÑA FROZEN",
+              "price": 16,
+              "desc": ""
+            }
+          ]
+        },
+        {
+          "id": "bebidas-refrescantes",
+          "name": "Refrescantes",
+          "items": [
+            {
+              "id": "maracuya",
+              "name": "MARACUYA",
+              "price": 14,
+              "desc": ""
+            },
+            {
+              "id": "maracuya-con-gas",
+              "name": "MARACUYA CON GAS",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "maracupina",
+              "name": "MARACUPINA",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "iced-tea-de-hierba-luisa-con-pina",
+              "name": "ICED TEA DE HIERBA LUISA CON PIÑA",
+              "price": 14,
+              "desc": ""
+            },
+            {
+              "id": "iced-tea-de-naranja-con-menta",
+              "name": "ICED TEA DE NARANJA CON MENTA",
+              "price": 14,
+              "desc": ""
+            },
+            {
+              "id": "limonada-clasica",
+              "name": "LIMONADA CLASICA",
+              "price": 12,
+              "desc": ""
+            },
+            {
+              "id": "limonada-con-gas",
+              "name": "LIMONADA CON GAS",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "limonada-hierba-luisa",
+              "name": "LIMONADA HIERBA LUISA",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "limonada-hierba-buena",
+              "name": "LIMONADA HIERBA BUENA",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "limonada-de-fresa",
+              "name": "LIMONADA DE FRESA",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "jamaica-fresh",
+              "name": "JAMAICA FRESH",
+              "price": 16,
+              "desc": "Jamaica y zumo de naranja."
+            },
+            {
+              "id": "tropical-william",
+              "name": "TROPICAL WILLIAM",
+              "price": 14,
+              "desc": "Hierba luisa, piña y maracuyá."
+            }
+          ]
+        },
+        {
+          "id": "bebidas-jugos-naturales",
+          "name": "Jugos naturales",
+          "items": [
+            {
+              "id": "jugo-papaya",
+              "name": "JUGO PAPAYA",
+              "price": 13,
+              "desc": ""
+            },
+            {
+              "id": "jugo-de-pina",
+              "name": "JUGO DE PIÑA",
+              "price": 13,
+              "desc": ""
+            },
+            {
+              "id": "jugo-fresa",
+              "name": "JUGO FRESA",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "jugo-lucuma",
+              "name": "JUGO LUCUMA",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "jugo-mango",
+              "name": "JUGO MANGO",
+              "price": 16,
+              "desc": ""
+            },
+            {
+              "id": "jugo-de-frutos-rojos",
+              "name": "JUGO DE FRUTOS ROJOS",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "jugo-de-papaya-con-naranja",
+              "name": "JUGO DE PAPAYA CON NARANJA",
+              "price": 16,
+              "desc": ""
+            },
+            {
+              "id": "jugo-surtido",
+              "name": "JUGO SURTIDO",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "zumo-de-naranja",
+              "name": "ZUMO DE NARANJA",
+              "price": 15,
+              "desc": ""
+            },
+            {
+              "id": "mix-verde-detox",
+              "name": "MIX VERDE DETOX",
+              "price": 16,
+              "desc": "Espinaca, kión, piña, limón y zumo de naranja."
+            },
+            {
+              "id": "leche-adicional-jugos",
+              "name": "LECHE ADICIONAL JUGOS",
+              "price": 3,
+              "desc": "Leche adicional para jugos."
+            },
+            {
+              "id": "leche-de-almendras",
+              "name": "LECHE DE ALMENDRAS",
+              "price": 3.5,
+              "desc": ""
+            },
+            {
+              "id": "leche-de-coco",
+              "name": "LECHE DE COCO",
+              "price": 3.5,
+              "desc": ""
+            }
+          ]
+        },
+        {
+          "id": "bebidas-infusiones-fidelia",
+          "name": "Infusiones Fidelia",
+          "items": [
+            {
+              "id": "manzanilla-adorada-fidelia",
+              "name": "MANZANILLA ADORADA FIDELIA",
+              "price": 8,
+              "desc": "Flores de manzanilla seleccionadas."
+            },
+            {
+              "id": "selva-sagrada-fidelia",
+              "name": "SELVA SAGRADA FIDELIA",
+              "price": 8,
+              "desc": "Té verde, membrillo, manzana, cáscara de limón."
+            },
+            {
+              "id": "tentacion-de-los-andes-fidelia",
+              "name": "TENTACION DE LOS ANDES FIDELIA",
+              "price": 8,
+              "desc": "Maíz morado, sauco, airampo, manzana, fresa, anís estrella y rosas."
+            },
+            {
+              "id": "hierba-luisa-radiante-fidelia",
+              "name": "HIERBA LUISA RADIANTE FIDELIA",
+              "price": 8,
+              "desc": "Hierba luisa, cáscara de naranja y botón de oro."
+            },
+            {
+              "id": "muna-celestial-fidelia",
+              "name": "MUÑA CELESTIAL FIDELIA",
+              "price": 8,
+              "desc": "Muña, hierba buena, anís, mejorana, cáscara de naranja y rosas."
+            },
+            {
+              "id": "chai-de-los-apus-fidelia",
+              "name": "CHAI DE LOS APUS FIDELIA",
+              "price": 8,
+              "desc": "Té negro, cáscara de limón, flor de cártamo y aceite de bergamota."
+            },
+            {
+              "id": "estela-de-anis-fidelia",
+              "name": "ESTELA DE ANIS FIDELIA",
+              "price": 8,
+              "desc": "Anís y anís estrella con un delicado toque floral."
+            }
+          ]
+        },
+        {
+          "id": "bebidas-otros",
+          "name": "Otros",
+          "items": [
+            {
+              "id": "inka-cola",
+              "name": "INKA COLA",
+              "price": 6,
+              "desc": "300 ml."
+            },
+            {
+              "id": "inka-cola-zero",
+              "name": "INKA COLA ZERO",
+              "price": 6,
+              "desc": "300 ml."
+            },
+            {
+              "id": "coca-cola",
+              "name": "COCA COLA",
+              "price": 6,
+              "desc": "300 ml."
+            },
+            {
+              "id": "coca-cola-zero",
+              "name": "COCA COLA ZERO",
+              "price": 6,
+              "desc": "300 ml."
+            },
+            {
+              "id": "sprite",
+              "name": "SPRITE",
+              "price": 6,
+              "desc": "500 ml."
+            },
+            {
+              "id": "agua-san-mateo-con-sin-gas",
+              "name": "AGUA SAN MATEO CON/SIN GAS",
+              "price": 7,
+              "desc": "600 ml. Con o sin gas a elección."
+            },
+            {
+              "id": "agua-munay-con-sin-gas",
+              "name": "AGUA MUNAY CON/SIN GAS",
+              "price": 7,
+              "desc": "500 ml. Con o sin gas a elección."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cocteleria",
+      "name": "Coctelería",
+      "sections": [
+        {
+          "id": "cocteleria-clasicos",
+          "name": "Clásicos",
+          "items": [
+            {
+              "id": "pisco-sour",
+              "name": "PISCO SOUR",
+              "price": 26,
+              "desc": "Clásico."
+            },
+            {
+              "id": "pisco-sour-maracuya",
+              "name": "PISCO SOUR MARACUYA",
+              "price": 26,
+              "desc": "Maracuyá."
+            },
+            {
+              "id": "chilcano-clasico",
+              "name": "CHILCANO CLASICO",
+              "price": 25,
+              "desc": "Clásico."
+            },
+            {
+              "id": "chilcano-maracuya",
+              "name": "CHILCANO MARACUYA",
+              "price": 25,
+              "desc": "Maracuyá."
+            },
+            {
+              "id": "mojito",
+              "name": "MOJITO",
+              "price": 25,
+              "desc": "Clásico."
+            },
+            {
+              "id": "mojito-maracuya",
+              "name": "MOJITO MARACUYA",
+              "price": 25,
+              "desc": "Maracuyá."
+            },
+            {
+              "id": "tinto-de-verano",
+              "name": "TINTO DE VERANO",
+              "price": 27,
+              "desc": "Vino tinto, zumo de naranja y jarabe."
+            },
+            {
+              "id": "cuba-libre",
+              "name": "CUBA LIBRE",
+              "price": 25,
+              "desc": "Ron rubio, zumo de limón y gaseosa de cola."
+            },
+            {
+              "id": "pina-colada",
+              "name": "PIÑA COLADA",
+              "price": 28,
+              "desc": "Ron, crema de coco y piña."
+            },
+            {
+              "id": "pisco-punch",
+              "name": "PISCO PUNCH",
+              "price": 25,
+              "desc": "Pisco, limón, piña y jarabe."
+            },
+            {
+              "id": "coctel-algarrobina",
+              "name": "COCTEL ALGARROBINA",
+              "price": 26,
+              "desc": "Pisco, algarrobina, kahlua y leche."
+            }
+          ]
+        },
+        {
+          "id": "cocteleria-de-la-casa",
+          "name": "De la casa",
+          "items": [
+            {
+              "id": "william-fresh",
+              "name": "WILLIAM FRESH",
+              "price": 25,
+              "desc": "Licor de menta, vermouth y ginger ale."
+            },
+            {
+              "id": "coffee-sour",
+              "name": "COFFEE SOUR",
+              "price": 25,
+              "desc": "Sour clásico con toques de café."
+            },
+            {
+              "id": "tequila-sunrise",
+              "name": "TEQUILA SUNRISE",
+              "price": 25,
+              "desc": "Tequila, zumo de naranja y granadina."
+            },
+            {
+              "id": "cosmopolitan",
+              "name": "COSMOPOLITAN",
+              "price": 25,
+              "desc": "Vodka, zumo de arándanos, limón y jarabe."
+            },
+            {
+              "id": "madame",
+              "name": "MADAME",
+              "price": 26,
+              "desc": "Helado de avellanas, kahlua y whisky."
+            },
+            {
+              "id": "capitan",
+              "name": "CAPITAN",
+              "price": 25,
+              "desc": "Pisco, vermouth rosso, amargo de angostura."
+            },
+            {
+              "id": "gin-tonic",
+              "name": "GIN TONIC",
+              "price": 25,
+              "desc": "Gin y agua tónica."
+            },
+            {
+              "id": "aperol-spritz",
+              "name": "APEROL SPRITZ",
+              "price": 28,
+              "desc": "Aperol, prosecco y agua con gas."
+            },
+            {
+              "id": "negroni",
+              "name": "NEGRONI",
+              "price": 30,
+              "desc": "Campari, gin y vermouth."
+            },
+            {
+              "id": "valiente-pink-gin-tonic",
+              "name": "VALIENTE PINK GIN TONIC",
+              "price": 29,
+              "desc": "Gin Beefeater con sirope de fresa y agua tónica."
+            },
+            {
+              "id": "diosa-tropical",
+              "name": "DIOSA TROPICAL",
+              "price": 27,
+              "desc": "Crema de coco, piña y ron con un toque de granadina."
+            }
+          ]
+        },
+        {
+          "id": "cocteleria-calientitos",
+          "name": "Calientitos",
+          "items": [
+            {
+              "id": "calientito-sunset-tropical",
+              "name": "CALIENTITO SUNSET TROPICAL",
+              "price": 20,
+              "desc": "Pisco, naranja y maracuyá."
+            },
+            {
+              "id": "calientito-de-frutos-del-bosque",
+              "name": "CALIENTITO DE FRUTOS DEL BOSQUE",
+              "price": 20,
+              "desc": "Vino tinto, vermouth rosso, anís estrella y miel."
+            },
+            {
+              "id": "calientito-de-frutos-rojos",
+              "name": "CALIENTITO DE FRUTOS ROJOS",
+              "price": 20,
+              "desc": "Macerado de canela (pisco), infusión de frutos rojos, jamaica, naranja y zumo de limón."
+            }
+          ]
+        },
+        {
+          "id": "cocteleria-cervezas",
+          "name": "Cervezas",
+          "items": [
+            {
+              "id": "pilsen",
+              "name": "PILSEN",
+              "price": 12,
+              "desc": ""
+            },
+            {
+              "id": "cusquena-dorada",
+              "name": "CUSQUENA DORADA",
+              "price": 12,
+              "desc": ""
+            },
+            {
+              "id": "cusquena-negra",
+              "name": "CUSQUEÑA NEGRA",
+              "price": 12,
+              "desc": ""
+            },
+            {
+              "id": "cusquena-trigo",
+              "name": "CUSQUENA TRIGO",
+              "price": 12,
+              "desc": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

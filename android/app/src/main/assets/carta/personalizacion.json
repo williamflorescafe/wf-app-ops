@@ -1,0 +1,40 @@
+{
+  "cappuccino": [
+    {
+      "id": "tamano",
+      "label": "Tamaño",
+      "selectionType": "single",
+      "required": true,
+      "hasImages": true,
+      "options": [
+        { "id": "peq", "label": "Peq(200ml)", "priceDelta": 0, "image": "icons/vaso-1.webp" },
+        { "id": "alto", "label": "Alto(500ml)", "priceDelta": 2, "image": "icons/vaso-2.webp" },
+        { "id": "gran", "label": "Gran(700ml)", "priceDelta": 4, "image": "icons/vaso-3.webp" }
+      ]
+    },
+    {
+      "id": "leche",
+      "label": "Leche",
+      "selectionType": "single",
+      "required": true,
+      "options": [
+        { "id": "entera", "label": "Entera", "priceDelta": 0 },
+        { "id": "avena", "label": "Avena", "priceDelta": 2 },
+        { "id": "almendra", "label": "Almendra", "priceDelta": 2 }
+      ]
+    },
+    {
+      "id": "extra",
+      "label": "Extra",
+      "selectionType": "multiple",
+      "required": false,
+      "minSelections": 0,
+      "maxSelections": 3,
+      "options": [
+        { "id": "shot", "label": "Shot extra", "priceDelta": 3 },
+        { "id": "crema", "label": "Crema batida", "priceDelta": 2 },
+        { "id": "canela", "label": "Canela", "priceDelta": 0 }
+      ]
+    }
+  ]
+}
