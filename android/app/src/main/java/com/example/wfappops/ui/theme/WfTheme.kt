@@ -1,10 +1,12 @@
 package com.example.wfappops.ui.theme
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.unit.dp
 
 private val WfLightColorScheme = lightColorScheme(
     primary = ColorTokens.Primary,
@@ -62,8 +64,10 @@ internal object WfThemeExtras {
     val statusColors: StatusColors
         @Composable get() = LocalStatusColors.current
 
-    val cartaCanvas = ColorTokens.CartaCanvas
+    val cartaCanvas = ColorTokens.NeutralCanvas
     val activeIndicator = ColorTokens.ActiveIndicator
+    val operationsCardBorder = BorderStroke(1.dp, ColorTokens.FieldLine)
+    val operationsBackground = ColorTokens.NeutralCanvas
     val warmSurface = ColorTokens.SurfaceWarm
     val onAdvanceAction = ColorTokens.SurfaceWarm
     val logoutAction = ColorTokens.Logout

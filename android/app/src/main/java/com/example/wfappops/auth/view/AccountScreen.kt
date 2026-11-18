@@ -1,4 +1,4 @@
-package com.example.wfappops.auth
+package com.example.wfappops.auth.view
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -39,6 +39,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
+import com.example.wfappops.auth.model.TeamBusiness
+import com.example.wfappops.auth.viewmodel.AccountNotice
+import com.example.wfappops.auth.viewmodel.AccountUiState
 import com.example.wfappops.ui.components.InlineMessage
 import com.example.wfappops.ui.components.OpsScaffold
 import com.example.wfappops.ui.components.StatusChip
@@ -50,25 +53,38 @@ import com.example.wfappops.ui.theme.WfRadius
 import com.example.wfappops.ui.theme.WfSpacing
 
 @Composable
-internal fun AccountAccessScreen(account: AccountViewModel) {
+internal fun AccountAccessScreen(
+    state: AccountUiState,
+    onUpdateEmail: (String) -> Unit,
+    onUpdatePassword: (String) -> Unit,
+    onLogin: () -> Unit,
+    onSelectBusiness: (TeamBusiness) -> Unit,
+    onRetry: () -> Unit,
+    onLogout: () -> Unit
+) {
     when {
-        account.restoring -> OpsScaffold {
+        state.restoring -> OpsScaffold {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         }
-        account.signedIn -> OpsScaffold { BusinessScreen(account) }
-        else -> LoginScreen(account)
+        state.signedIn -> OpsScaffold { BusinessScreen(state, onSelectBusiness, onRetry, onLogout) }
+        else -> LoginScreen(state, onUpdateEmail, onUpdatePassword, onLogin)
     }
 }
 
 @Composable
-private fun LoginScreen(account: AccountViewModel) {
+private fun LoginScreen(
+    state: AccountUiState,
+    onUpdateEmail: (String) -> Unit,
+    onUpdatePassword: (String) -> Unit,
+    onLogin: () -> Unit
+) {
     val scheme = MaterialTheme.colorScheme
     val focusManager = LocalFocusManager.current
     val submit = {
         focusManager.clearFocus()
-        account.login()
+        onLogin()
     }
     Column(
         modifier = Modifier.fillMaxSize().background(scheme.surfaceContainerLowest)
@@ -80,7 +96,7 @@ private fun LoginScreen(account: AccountViewModel) {
                 contentDescription = stringResource(R.string.auth_brand),
                 modifier = Modifier.align(Alignment.Center).padding(vertical = WfSpacing.xl).height(152.dp)
             )
-            if (account.isStaging) {
+            if (state.isStaging) {
                 StatusChip(
                     stringResource(R.string.auth_staging), StatusTone.WARNING,
                     modifier = Modifier.align(Alignment.TopEnd).padding(WfSpacing.lg)
@@ -102,15 +118,15 @@ private fun LoginScreen(account: AccountViewModel) {
                     color = scheme.onSurfaceVariant
                 )
             }
-            Notice(account.notice)
+            Notice(state.notice)
             WfTextField(
-                value = account.email,
-                onValueChange = account::updateEmail,
+                value = state.email,
+                onValueChange = onUpdateEmail,
                 label = stringResource(R.string.auth_email),
                 placeholder = stringResource(R.string.auth_email_placeholder),
                 leadingIcon = R.drawable.ic_mail,
-                errorMessage = account.emailError,
-                enabled = !account.loading,
+                errorMessage = state.emailError,
+                enabled = !state.loading,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next,
@@ -119,27 +135,27 @@ private fun LoginScreen(account: AccountViewModel) {
                 modifier = Modifier.semantics { contentType = ContentType.EmailAddress + ContentType.Username }
             )
             WfTextField(
-                value = account.password,
-                onValueChange = account::updatePassword,
+                value = state.password,
+                onValueChange = onUpdatePassword,
                 label = stringResource(R.string.auth_password),
                 placeholder = stringResource(R.string.auth_password_placeholder),
                 leadingIcon = R.drawable.ic_lock,
                 isPassword = true,
-                errorMessage = account.passwordError,
-                enabled = !account.loading,
+                errorMessage = state.passwordError,
+                enabled = !state.loading,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
                 modifier = Modifier.semantics { contentType = ContentType.Password }
             )
             Spacer(Modifier.height(WfSpacing.xs))
             WfButton(
-                text = stringResource(if (account.demoLogin) R.string.auth_continue else R.string.auth_login),
+                text = stringResource(if (state.demoLogin) R.string.auth_continue else R.string.auth_login),
                 onClick = submit,
-                isLoading = account.loading,
+                isLoading = state.loading,
                 fullWidth = true
             )
             Text(
-                text = stringResource(R.string.auth_version, account.appVersion),
+                text = stringResource(R.string.auth_version, state.appVersion),
                 style = MaterialTheme.typography.labelSmall,
                 color = scheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = WfSpacing.sm)
@@ -149,9 +165,14 @@ private fun LoginScreen(account: AccountViewModel) {
 }
 
 @Composable
-private fun BusinessScreen(account: AccountViewModel) {
+private fun BusinessScreen(
+    state: AccountUiState,
+    onSelectBusiness: (TeamBusiness) -> Unit,
+    onRetry: () -> Unit,
+    onLogout: () -> Unit
+) {
     val scheme = MaterialTheme.colorScheme
-    val businesses = account.businesses
+    val businesses = state.businesses
     Column(
         modifier = Modifier.fillMaxSize().background(scheme.background).verticalScroll(rememberScrollState())
             .navigationBarsPadding().padding(WfSpacing.lg),
@@ -160,24 +181,24 @@ private fun BusinessScreen(account: AccountViewModel) {
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             WfButton(
                 text = stringResource(R.string.auth_logout),
-                onClick = account::logout,
+                onClick = onLogout,
                 style = WfButtonStyle.LOGOUT_SOFT,
                 leadingIcon = R.drawable.ic_logout,
-                enabled = !account.loading
+                enabled = !state.loading
             )
         }
         Text(stringResource(R.string.auth_choose_business), style = MaterialTheme.typography.headlineMedium)
-        Notice(account.notice)
+        Notice(state.notice)
         when {
-            account.loading -> CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
+            state.loading -> CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
 
-            businesses == null -> WfButton(text = stringResource(R.string.auth_retry), onClick = account::retry)
+            businesses == null -> WfButton(text = stringResource(R.string.auth_retry), onClick = onRetry)
 
             businesses.isEmpty() -> Text(stringResource(R.string.auth_no_businesses))
 
             else -> {
                 Text(stringResource(R.string.auth_choose_business_hint), color = scheme.onSurfaceVariant)
-                businesses.forEach { business -> BusinessCard(business) { account.selectBusiness(business) } }
+                businesses.forEach { business -> BusinessCard(business) { onSelectBusiness(business) } }
             }
         }
     }

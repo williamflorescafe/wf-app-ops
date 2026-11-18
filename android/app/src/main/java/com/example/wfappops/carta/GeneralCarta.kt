@@ -20,9 +20,9 @@ import com.example.wfappops.R
 import com.example.wfappops.cart.CartActivity
 import com.example.wfappops.cart.CartStore
 import com.example.wfappops.cart.cartShortcut
-import com.example.wfappops.cart.hasCartAccess
-import com.example.wfappops.tables.OrderLine
-import com.example.wfappops.tables.addCartLine
+import com.example.wfappops.auth.hasOpsAccess
+import com.example.wfappops.orders.model.OrderLine
+import com.example.wfappops.orders.model.addCartLine
 import com.example.wfappops.ui.components.OpsBottomBar
 import com.example.wfappops.ui.components.OpsScaffold
 import com.example.wfappops.ui.components.OpsTab
@@ -49,7 +49,7 @@ internal fun GeneralCarta(
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    check(context.hasCartAccess(storageId))
+                    check(context.hasOpsAccess(storageId))
                     if (change == null) store.read() else store.update(change)
                 }
             }

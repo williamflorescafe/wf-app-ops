@@ -1,26 +1,15 @@
 package com.example.wfappops.cart
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.util.AtomicFile
-import com.example.wfappops.auth.ActiveOpsAccess
-import com.example.wfappops.tables.OrderLine
-import com.example.wfappops.tables.readLine
-import com.example.wfappops.tables.toJson
+import com.example.wfappops.orders.model.OrderLine
+import com.example.wfappops.orders.data.readLine
+import com.example.wfappops.orders.data.toJson
 import org.json.JSONArray
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
-
-internal const val DEMO_STORAGE_PREFIX = "demo-"
-
-internal fun Context.hasCartAccess(storageId: String): Boolean {
-    val access = ActiveOpsAccess.current ?: return false
-    val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
-    val activeStorageId = if (access.simulated) DEMO_STORAGE_PREFIX + access.businessId else access.businessId
-    return storageId == activeStorageId && (!access.simulated || debuggable)
-}
 
 /** Carrito de la carta general. Las mesas usan el borrador de su atención en TableStore. */
 internal class CartStore(context: Context, storageId: String) {

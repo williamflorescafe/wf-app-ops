@@ -1,4 +1,4 @@
-package com.example.wfappops.home
+package com.example.wfappops.home.view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -27,8 +27,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
-import com.example.wfappops.tables.RegisteredOrder
-import com.example.wfappops.tables.TableWorker
+import com.example.wfappops.home.viewmodel.OrderHistoryUiState
+import com.example.wfappops.orders.model.RegisteredOrder
+import com.example.wfappops.orders.model.TableWorker
 import com.example.wfappops.ui.components.WfButton
 import com.example.wfappops.ui.components.WfButtonStyle
 import com.example.wfappops.ui.theme.WfThemeExtras
@@ -41,7 +42,8 @@ internal fun HomeScreen(
     worker: TableWorker,
     canOpenOrder: Boolean,
     onCreateOrder: () -> Unit,
-    history: OrderHistory,
+    history: OrderHistoryUiState,
+    onRetry: () -> Unit,
     onOpenOrder: (RegisteredOrder) -> Unit,
     onSeeMore: () -> Unit
 ) {
@@ -101,7 +103,7 @@ internal fun HomeScreen(
                 style = MaterialTheme.typography.titleLarge
             )
         }
-        orderHistoryItems(history, canOpenOrder, onOpenOrder, limit = RecentOrderLimit)
+        orderHistoryItems(history, onRetry, canOpenOrder, onOpenOrder, limit = RecentOrderLimit)
         if ((history.orders?.size ?: 0) > RecentOrderLimit) item(key = "see-more-orders") {
             WfButton(
                 text = stringResource(R.string.home_orders_more),

@@ -45,6 +45,9 @@ internal object WfSize {
     /** Área táctil mínima (estándar de Android; también cumple en iOS). */
     val minTouchTarget = 48.dp
 
+    /** Alto visible de controles compactos. */
+    val compactControl = 44.dp
+
     /** Alto de botones y campos de texto. */
     val control = 52.dp
 

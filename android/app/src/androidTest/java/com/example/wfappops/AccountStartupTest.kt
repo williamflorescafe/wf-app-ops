@@ -1,13 +1,17 @@
 package com.example.wfappops
 
+import android.Manifest
+import android.os.Build
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.isEnabled
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -19,10 +23,12 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.espresso.Espresso.pressBack
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
-import com.example.wfappops.carta.CreateOrderActivity
+import com.example.wfappops.orders.view.CreateOrderActivity
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,6 +37,16 @@ import org.junit.runner.RunWith
 class AccountStartupTest {
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun grantNotificationsPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            instrumentation.uiAutomation.grantRuntimePermission(
+                instrumentation.targetContext.packageName, Manifest.permission.POST_NOTIFICATIONS
+            )
+        }
+    }
 
     @Test
     fun demoShowsLoginAndContinuesWithEmptyCredentials() {
@@ -58,8 +74,10 @@ class AccountStartupTest {
         compose.onNodeWithText(compose.activity.getString(R.string.home_my_orders)).assertIsDisplayed()
         compose.onNodeWithText(create).performClick()
         val order = compose.activity.getString(R.string.order_table_number, 1)
+        val tableSearch = hasContentDescription(compose.activity.getString(R.string.tables_search)) and isFocused()
         compose.waitUntil(timeoutMillis = 10_000) {
-            compose.onAllNodesWithText(order).fetchSemanticsNodes().size == 1
+            compose.onAllNodes(tableSearch).fetchSemanticsNodes().size == 1 &&
+                compose.onAllNodesWithText(order).fetchSemanticsNodes().size == 1
         }
         compose.runOnIdle {
             val resumed = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
@@ -89,7 +107,11 @@ class AccountStartupTest {
         compose.onNodeWithText(compose.activity.getString(R.string.carta_customize)).assertDoesNotExist()
         compose.onNodeWithText(compose.activity.getString(R.string.order_add_product)).performScrollTo().performClick()
         compose.onNodeWithText(compose.activity.getString(R.string.tables_choose_table)).assertDoesNotExist()
-        compose.onNodeWithText(compose.activity.getString(R.string.order_continue_products))
+        val continueProducts = hasText(compose.activity.getString(R.string.order_continue_products)) and isEnabled()
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodes(continueProducts).fetchSemanticsNodes().size == 1
+        }
+        compose.onNode(continueProducts)
             .assertIsDisplayed().assertHeightIsAtLeast(44.dp).performClick()
         compose.onNodeWithText(order).assertIsDisplayed()
         compose.onNodeWithText(pending).assertIsDisplayed()
@@ -102,17 +124,10 @@ class AccountStartupTest {
         }
         compose.onNodeWithText(order).performClick()
         compose.waitUntil(timeoutMillis = 10_000) {
-            compose.onAllNodesWithContentDescription(search).fetchSemanticsNodes().size == 1
+            compose.onAllNodesWithText(pending).fetchSemanticsNodes().size == 1
         }
-        pressBack()
-        compose.onNode(newDispatch).assertIsDisplayed()
-        compose.onNodeWithText(pending).assertDoesNotExist()
-        compose.onNode(newDispatch).performClick()
-        compose.waitUntil(timeoutMillis = 10_000) {
-            compose.onAllNodesWithContentDescription(addEspresso).fetchSemanticsNodes().size == 1
-        }
-        compose.onNodeWithContentDescription(addEspresso).performClick()
-        pressBack()
+        compose.onNodeWithContentDescription(search).assertDoesNotExist()
+        compose.onNodeWithText(compose.activity.getString(R.string.order_note_text, note)).assertIsDisplayed()
         compose.onNodeWithText(compose.activity.getString(R.string.order_send)).performClick()
         compose.waitUntil(timeoutMillis = 10_000) {
             compose.onAllNodes(newDispatch).fetchSemanticsNodes().size == 1

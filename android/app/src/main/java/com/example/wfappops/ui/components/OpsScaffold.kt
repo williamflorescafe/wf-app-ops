@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -40,6 +41,7 @@ import com.example.wfappops.ui.theme.WfThemeExtras
 internal enum class OpsTab(val label: Int, val icon: Int) {
     HOME(R.string.ops_home, R.drawable.ic_home),
     CARTA(R.string.ops_carta, R.drawable.ic_carta_cup),
+    KITCHEN(R.string.ops_kitchen, R.drawable.ic_kitchen),
     PROFILE(R.string.ops_profile, R.drawable.ic_person)
 }
 
@@ -49,9 +51,18 @@ internal class CartShortcut(val count: Long, val total: String, val onOpen: () -
 internal fun OpsScaffold(
     bottomBar: @Composable () -> Unit = {},
     topBar: @Composable () -> Unit = {},
+    containerColor: Color = MaterialTheme.colorScheme.background,
+    snackbarHost: @Composable () -> Unit = {},
     content: @Composable () -> Unit
 ) {
-    Scaffold(topBar = topBar, bottomBar = bottomBar, contentWindowInsets = WindowInsets.safeDrawing) { padding ->
+    Scaffold(
+        topBar = topBar,
+        bottomBar = bottomBar,
+        snackbarHost = snackbarHost,
+        containerColor = containerColor,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        contentWindowInsets = WindowInsets.safeDrawing
+    ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) { content() }
     }
 }

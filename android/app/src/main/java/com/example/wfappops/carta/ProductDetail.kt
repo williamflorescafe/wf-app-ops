@@ -48,7 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
-import com.example.wfappops.tables.OrderLine
+import com.example.wfappops.orders.model.OrderLine
 import com.example.wfappops.ui.components.WfButton
 import com.example.wfappops.ui.components.WfButtonStyle
 import com.example.wfappops.ui.theme.WfSize

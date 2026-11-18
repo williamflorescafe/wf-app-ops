@@ -56,7 +56,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
-import com.example.wfappops.tables.OrderLine
+import com.example.wfappops.carta.data.CatalogPhotoStore
+import com.example.wfappops.carta.data.catalogHttpsUrl
+import com.example.wfappops.orders.model.OrderLine
 import com.example.wfappops.ui.theme.WfThemeExtras
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -283,23 +285,29 @@ internal fun CartaPhoto(
     modifier: Modifier,
     contentScale: ContentScale = ContentScale.Crop
 ) {
-    val assets = LocalContext.current.assets
-    val photo by produceState<ImageBitmap?>(null, assets, path) {
-        value = null
-        if (path != null) {
-            value = withContext(Dispatchers.IO) {
-                try {
-                    assets.open(path).use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
-                } catch (_: IOException) {
-                    null
+    val context = LocalContext.current.applicationContext
+    val bitmap = key(path, context) {
+        val photo by produceState<ImageBitmap?>(null) {
+            if (path != null) {
+                val url = catalogHttpsUrl(path)
+                value = if (url != null) {
+                    CatalogPhotoStore.load(context, url)?.asImageBitmap()
+                } else withContext(Dispatchers.IO) {
+                    try {
+                        context.assets.open(path).use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+                    } catch (_: IOException) {
+                        null
+                    }
                 }
             }
         }
+        photo
     }
-    val bitmap = photo
-    if (bitmap == null) {
-        Box(modifier.background(MaterialTheme.colorScheme.primaryContainer))
-    } else {
-        Image(bitmap, description, modifier, contentScale = contentScale)
+    Box(modifier) {
+        if (bitmap == null) {
+            Box(Modifier.matchParentSize().background(MaterialTheme.colorScheme.primaryContainer))
+        } else {
+            Image(bitmap, description, Modifier.matchParentSize(), contentScale = contentScale)
+        }
     }
 }

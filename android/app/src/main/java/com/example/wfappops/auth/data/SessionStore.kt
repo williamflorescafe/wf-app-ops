@@ -1,9 +1,12 @@
-package com.example.wfappops.auth
+package com.example.wfappops.auth.data
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.AtomicFile
+import com.example.wfappops.auth.model.TeamBusinessContext
+import com.example.wfappops.auth.model.TeamLocation
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.File
@@ -12,6 +15,7 @@ import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.KeyStore
 import java.security.ProviderException
+import java.time.Instant
 import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -43,14 +47,21 @@ internal class SessionStore(context: Context) {
         if (!value.startsWith('{')) return StoredSession(value)
         return try {
             val json = JSONObject(value)
-            StoredSession(json.getString("token"), json.optString("business_id").ifBlank { null })
+            val businessId = json.optString("business_id").ifBlank { null }
+            val cached = json.optJSONObject("verified_business")?.let { stored ->
+                runCatching { stored.readVerifiedBusiness() }.getOrNull()
+            }?.takeIf { it.context.businessId == businessId }
+            StoredSession(json.getString("token"), businessId, cached)
         } catch (_: JSONException) {
             null
         }
     }
 
     fun save(session: StoredSession) {
-        val json = JSONObject().put("token", session.token).put("business_id", session.businessId)
+        val json = JSONObject()
+            .put("token", session.token)
+            .put("business_id", session.businessId)
+            .put("verified_business", session.verifiedBusiness?.toJson())
         writeEncrypted(file, json.toString())
     }
 
@@ -92,6 +103,7 @@ internal class SessionStore(context: Context) {
             target.failWrite(stream)
             throw exception
         }
+        if (!target.readFully().contentEquals(bytes)) throw IOException("Could not persist encrypted session data")
     }
 
     private fun keyStore() = KeyStore.getInstance(KEYSTORE).apply { load(null) }
@@ -118,4 +130,39 @@ internal class SessionStore(context: Context) {
     }
 }
 
-internal data class StoredSession(val token: String, val businessId: String? = null)
+internal data class StoredSession(
+    val token: String,
+    val businessId: String? = null,
+    val verifiedBusiness: VerifiedBusiness? = null
+)
+
+private fun VerifiedBusiness.toJson() = JSONObject()
+    .put("verified_at", verifiedAt.toEpochMilli())
+    .put("business_id", context.businessId)
+    .put("business_name", context.businessName)
+    .put("employee_id", context.employeeId)
+    .put("employee_name", context.employeeName)
+    .put("access_version", context.accessVersion)
+    .put("location_scope", context.locationScope)
+    .put("locations", JSONArray(context.locations.map {
+        JSONObject().put("name", it.name).put("code", it.code)
+    }))
+
+private fun JSONObject.readVerifiedBusiness(): VerifiedBusiness {
+    val locations = getJSONArray("locations")
+    return VerifiedBusiness(
+        context = TeamBusinessContext(
+            businessId = getString("business_id"),
+            businessName = getString("business_name"),
+            employeeName = getString("employee_name"),
+            employeeId = getString("employee_id"),
+            accessVersion = getString("access_version"),
+            locationScope = getString("location_scope"),
+            locations = List(locations.length()) { index ->
+                val item = locations.getJSONObject(index)
+                TeamLocation(item.getString("name"), item.getString("code"))
+            }
+        ),
+        verifiedAt = Instant.ofEpochMilli(getLong("verified_at"))
+    )
+}

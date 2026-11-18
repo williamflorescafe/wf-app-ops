@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -26,7 +28,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".cart.CartActivity" android:enabled="false" android:exported="false" />
-        <activity android:name=".carta.CreateOrderActivity" android:exported="false" />
+        <activity android:name=".orders.view.CreateOrderActivity" android:exported="false" />
     </application>
 
 </manifest>

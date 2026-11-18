@@ -1,4 +1,4 @@
-package com.example.wfappops.home
+package com.example.wfappops.home.view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,25 +23,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
-import com.example.wfappops.carta.ActiveTableDot
-import com.example.wfappops.tables.RegisteredOrder
-import com.example.wfappops.tables.RegisteredOrderStatus
-import com.example.wfappops.tables.TableStore
+import com.example.wfappops.home.viewmodel.OrderHistoryUiState
+import com.example.wfappops.orders.view.ActiveTableDot
+import com.example.wfappops.orders.model.RegisteredOrder
+import com.example.wfappops.orders.model.RegisteredOrderStatus
 import com.example.wfappops.tables.tableActivityDay
 import com.example.wfappops.tables.tableActivityTime
 import com.example.wfappops.tables.tableLocalDate
@@ -49,27 +43,11 @@ import com.example.wfappops.tables.tableZone
 import com.example.wfappops.ui.theme.WfSpacing
 import com.example.wfappops.ui.theme.WfThemeExtras
 import java.time.LocalDate
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-
-internal class OrderHistory(val result: Result<List<RegisteredOrder>>?, val retry: () -> Unit) {
-    val orders get() = result?.getOrNull()
-}
-
-@Composable
-internal fun rememberOrderHistory(storageId: String, employeeId: String, version: Int): OrderHistory {
-    val context = LocalContext.current.applicationContext
-    val store = remember(context, storageId) { TableStore(context, storageId) }
-    var retry by remember { mutableIntStateOf(0) }
-    val result by produceState<Result<List<RegisteredOrder>>?>(null, store, employeeId, version, retry) {
-        value = withContext(Dispatchers.IO) { runCatching { store.read().ordersBy(employeeId) } }
-    }
-    return OrderHistory(result) { retry++ }
-}
 
 @Composable
 internal fun OrderHistoryScreen(
-    history: OrderHistory,
+    history: OrderHistoryUiState,
+    onRetry: () -> Unit,
     canOpenOrder: Boolean,
     onOpenOrder: (RegisteredOrder) -> Unit,
     onBack: () -> Unit
@@ -89,13 +67,14 @@ internal fun OrderHistoryScreen(
             contentPadding = PaddingValues(WfSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)
         ) {
-            orderHistoryItems(history, canOpenOrder, onOpenOrder)
+            orderHistoryItems(history, onRetry, canOpenOrder, onOpenOrder)
         }
     }
 }
 
 internal fun LazyListScope.orderHistoryItems(
-    history: OrderHistory,
+    history: OrderHistoryUiState,
+    onRetry: () -> Unit,
     canOpenOrder: Boolean,
     onOpenOrder: (RegisteredOrder) -> Unit,
     limit: Int = Int.MAX_VALUE
@@ -106,7 +85,7 @@ internal fun LazyListScope.orderHistoryItems(
         orders == null -> item {
             Column {
                 Text(stringResource(R.string.home_orders_error), color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = history.retry) { Text(stringResource(R.string.auth_retry)) }
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.auth_retry)) }
             }
         }
         orders.isEmpty() -> item {
@@ -140,7 +119,9 @@ private fun OrderHistoryCard(order: RegisteredOrder, enabled: Boolean, onClick: 
     val status = when (order.status) {
         RegisteredOrderStatus.OPEN -> stringResource(R.string.home_order_open)
         RegisteredOrderStatus.DRAFT -> stringResource(R.string.home_order_draft)
+        RegisteredOrderStatus.SENT -> stringResource(R.string.order_sent_status)
         RegisteredOrderStatus.PREPARING -> stringResource(R.string.order_preparing)
+        RegisteredOrderStatus.DELIVERED -> stringResource(R.string.order_delivered)
         RegisteredOrderStatus.CLOSED -> stringResource(R.string.order_closed)
         RegisteredOrderStatus.READY -> pluralStringResource(
             R.plurals.home_order_ready, if (order.readyQuantity == 1L) 1 else 2, order.readyQuantity

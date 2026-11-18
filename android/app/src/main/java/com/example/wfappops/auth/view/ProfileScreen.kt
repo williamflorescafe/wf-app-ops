@@ -1,4 +1,4 @@
-package com.example.wfappops.auth
+package com.example.wfappops.auth.view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,11 +25,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,6 +37,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
+import com.example.wfappops.auth.model.TeamBusinessContext
+import com.example.wfappops.auth.viewmodel.AccountUiState
+import com.example.wfappops.notifications.ReadyProductSoundSetting
 import com.example.wfappops.ui.components.StatusChip
 import com.example.wfappops.ui.components.WfButton
 import com.example.wfappops.ui.components.WfButtonStyle
@@ -50,12 +50,16 @@ import com.example.wfappops.ui.theme.WfSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun AccountScreen(account: AccountViewModel, business: TeamBusinessContext, onOpenHistory: () -> Unit) {
+internal fun AccountScreen(
+    state: AccountUiState,
+    business: TeamBusinessContext,
+    onReloadProfile: () -> Unit,
+    onLogout: () -> Unit,
+    onOpenHistory: () -> Unit
+) {
     val scheme = MaterialTheme.colorScheme
-    var email by remember { mutableStateOf<Result<String?>?>(null) }
-    var retry by remember { mutableIntStateOf(0) }
+    val email = state.profileEmail
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(account, retry) { email = account.profileEmail() }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(WfSpacing.lg),
@@ -69,7 +73,7 @@ internal fun AccountScreen(account: AccountViewModel, business: TeamBusinessCont
                     stringResource(R.string.profile_email_unavailable), Modifier.weight(1f),
                     color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium
                 )
-                TextButton(onClick = { email = null; retry++ }) { Text(stringResource(R.string.auth_retry)) }
+                TextButton(onClick = onReloadProfile) { Text(stringResource(R.string.auth_retry)) }
             }
         }
         ProfileSection(R.string.profile_business) {
@@ -112,8 +116,11 @@ internal fun AccountScreen(account: AccountViewModel, business: TeamBusinessCont
         ProfileSection(R.string.profile_app) {
             Row(Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.profile_version), Modifier.weight(1f))
-                Text(account.appVersion, color = scheme.onSurfaceVariant)
+                Text(state.appVersion, color = scheme.onSurfaceVariant)
             }
+        }
+        ProfileSection(R.string.profile_settings) {
+            ReadyProductSoundSetting()
         }
         WfButton(
             text = stringResource(R.string.profile_order_history),
@@ -121,11 +128,11 @@ internal fun AccountScreen(account: AccountViewModel, business: TeamBusinessCont
             style = WfButtonStyle.BACK,
             fullWidth = true
         )
-        if (!account.isSimulated) {
+        if (!state.isSimulated) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)) {
                 WfButton(
                     text = stringResource(R.string.auth_logout), onClick = { confirmLogout = true },
-                    style = WfButtonStyle.LOGOUT_SOFT, enabled = !account.loading,
+                    style = WfButtonStyle.LOGOUT_SOFT, enabled = !state.loading,
                     leadingIcon = R.drawable.ic_logout, fullWidth = true
                 )
                 Text(
@@ -147,8 +154,8 @@ internal fun AccountScreen(account: AccountViewModel, business: TeamBusinessCont
                 Text(stringResource(R.string.profile_logout_hint), color = scheme.onSurfaceVariant)
                 WfButton(stringResource(R.string.auth_logout), onClick = {
                     confirmLogout = false
-                    account.logout()
-                }, style = WfButtonStyle.LOGOUT, enabled = !account.loading, fullWidth = true)
+                    onLogout()
+                }, style = WfButtonStyle.LOGOUT, enabled = !state.loading, fullWidth = true)
                 WfButton(
                     stringResource(R.string.tables_cancel), onClick = { confirmLogout = false },
                     style = WfButtonStyle.BACK, fullWidth = true

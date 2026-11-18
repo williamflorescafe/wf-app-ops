@@ -40,9 +40,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
+import com.example.wfappops.auth.hasOpsAccess
 import com.example.wfappops.carta.formatCartaPrice
-import com.example.wfappops.tables.OrderLine
-import com.example.wfappops.tables.adjustCartLine
+import com.example.wfappops.orders.model.OrderLine
+import com.example.wfappops.orders.model.adjustCartLine
 import com.example.wfappops.ui.components.CartShortcut
 import com.example.wfappops.ui.components.OpsBottomBar
 import com.example.wfappops.ui.components.OpsScaffold
@@ -57,13 +58,13 @@ class CartActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val storageId = intent.getStringExtra(GENERAL_STORAGE)
-        if (storageId == null || !hasCartAccess(storageId)) {
+        if (storageId == null || !hasOpsAccess(storageId)) {
             finish()
             return
         }
         val store = CartStore(applicationContext, storageId)
         fun checkAccess() {
-            check(hasCartAccess(storageId))
+            check(hasOpsAccess(storageId))
         }
 
         enableEdgeToEdge(

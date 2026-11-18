@@ -1,4 +1,4 @@
-package com.example.wfappops.carta
+package com.example.wfappops.orders.view
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -21,8 +21,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.BottomSheetDefaults
@@ -38,8 +36,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,28 +46,30 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
-import com.example.wfappops.tables.OrderLine
+import com.example.wfappops.carta.CartaCollection
+import com.example.wfappops.carta.CartaPhoto
+import com.example.wfappops.carta.CartaProduct
+import com.example.wfappops.carta.ProductDetail
+import com.example.wfappops.orders.model.OrderLine
 import com.example.wfappops.ui.theme.WfRadius
 import com.example.wfappops.ui.theme.WfSize
 import com.example.wfappops.ui.theme.WfSpacing
@@ -89,15 +88,12 @@ internal fun OrderProductSheet(
     lines: List<OrderLine>,
     busy: Boolean,
     failed: Boolean,
+    addedProducts: Int,
+    catalog: Result<List<CartaCollection>>?,
+    onRetry: () -> Unit,
     onDismiss: () -> Unit,
-    onAdd: (OrderLine, () -> Unit) -> Unit
+    onAdd: (OrderLine) -> Unit
 ) {
-    val assets = LocalContext.current.assets
-    var retry by remember { mutableIntStateOf(0) }
-    val catalog by produceState<Result<List<CartaCollection>>?>(null, assets, retry) {
-        value = null
-        value = loadOrderCarta(assets)
-    }
     val collections = catalog?.getOrNull().orEmpty()
     val quantities = remember(lines) {
         lines.groupingBy { it.product }.fold(0L) { count, line -> count + line.quantity }
@@ -107,6 +103,11 @@ internal fun OrderProductSheet(
     var categoryId by rememberSaveable { mutableStateOf<String?>(null) }
     val activeCategory = collections.firstOrNull { it.id == categoryId }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var handledAdds by rememberSaveable { mutableIntStateOf(addedProducts) }
+    LaunchedEffect(addedProducts) {
+        if (addedProducts > handledAdds) selectedId = null
+        handledAdds = addedProducts
+    }
     val selected = remember(collections, selectedId) {
         selectedId?.let { id ->
             collections.firstNotNullOfOrNull { collection ->
@@ -119,9 +120,10 @@ internal fun OrderProductSheet(
         collections.flatMap { it.sections }.flatMap { it.products }
             .associate { it.id to searchKey(it.name) }
     }
-    val matching = remember(collections, searchableNames, categoryId, query) {
+    val visibleCategoryId = activeCategory?.id
+    val matching = remember(collections, searchableNames, visibleCategoryId, query) {
         val words = searchKey(query.trim()).split(Regex("\\s+")).filter(String::isNotEmpty)
-        collections.filter { categoryId == null || it.id == categoryId }.mapNotNull { collection ->
+        collections.filter { visibleCategoryId == null || it.id == visibleCategoryId }.mapNotNull { collection ->
             val sections = collection.sections.mapNotNull { section ->
                 val products = section.products.filter { product ->
                     words.all { searchableNames.getValue(product.id).contains(it) }
@@ -132,7 +134,11 @@ internal fun OrderProductSheet(
         }
     }
     val scope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val operationsInProgress by rememberUpdatedState(busy)
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.Hidden || !operationsInProgress }
+    )
     val listState = rememberLazyListState()
     LaunchedEffect(categoryId, query) {
         listState.scrollToItem(0)
@@ -168,7 +174,7 @@ internal fun OrderProductSheet(
                         product = selected.second,
                         collection = selected.first,
                         adding = busy,
-                        onAdd = { line -> onAdd(line) { selectedId = null } },
+                        onAdd = onAdd,
                         forOrder = true
                     )
                 }
@@ -182,7 +188,6 @@ internal fun OrderProductSheet(
                     }
                     Unit
                 }
-                val searchLabel = stringResource(R.string.order_search)
                 Row(
                     Modifier.fillMaxWidth().padding(start = WfSpacing.md, end = WfSpacing.md, bottom = WfSpacing.md),
                     horizontalArrangement = Arrangement.spacedBy(WfSpacing.sm),
@@ -200,24 +205,10 @@ internal fun OrderProductSheet(
                             )
                         }
                     }
-                    OutlinedTextField(
+                    OrderSearchField(
                         state = searchField,
+                        label = stringResource(R.string.order_search),
                         modifier = Modifier.weight(1f)
-                            .height(WfSize.minTouchTarget)
-                            .semantics { contentDescription = searchLabel },
-                        leadingIcon = { Icon(painterResource(R.drawable.ic_search), contentDescription = null) },
-                        placeholder = { Text(searchLabel) },
-                        lineLimits = TextFieldLineLimits.SingleLine,
-                        shape = CircleShape,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = scheme.surface,
-                            unfocusedContainerColor = scheme.surface,
-                            focusedBorderColor = scheme.onPrimaryContainer,
-                            unfocusedBorderColor = scheme.outlineVariant
-                        ),
-                        contentPadding = PaddingValues(horizontal = WfSpacing.lg, vertical = WfSpacing.sm),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        onKeyboardAction = { focus.clearFocus() }
                     )
                 }
                 Surface(
@@ -248,13 +239,13 @@ internal fun OrderProductSheet(
                             if (failed) item { Text(stringResource(R.string.cart_error), color = scheme.error) }
                             when {
                                 catalog == null -> item { CircularProgressIndicator() }
-                                catalog?.isFailure == true -> item {
+                                catalog.isFailure -> item {
                                     Text(stringResource(R.string.order_catalog_error))
-                                    TextButton(onClick = { retry++ }) { Text(stringResource(R.string.auth_retry)) }
+                                    TextButton(onClick = onRetry) { Text(stringResource(R.string.auth_retry)) }
                                 }
                                 matching.isEmpty() -> item {
                                     Text(stringResource(R.string.order_search_empty))
-                                    if (categoryId != null && query.isNotBlank()) {
+                                    if (visibleCategoryId != null && query.isNotBlank()) {
                                         TextButton(onClick = { categoryId = null }) {
                                             Text(stringResource(R.string.order_search_all))
                                         }
@@ -279,7 +270,7 @@ internal fun OrderProductSheet(
                                                 onOpen = openDetail,
                                                 onAdd = {
                                                     if (product.modifierGroups.isEmpty()) {
-                                                        onAdd(OrderLine(product.name, 1, product.priceInCents)) {}
+                                                        onAdd(OrderLine(product.name, 1, product.priceInCents))
                                                     } else {
                                                         openDetail()
                                                     }
@@ -342,16 +333,15 @@ private fun ProductCategories(
     onSelect: (String?) -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
-    val categories = listOf(null to stringResource(R.string.order_all_categories)) +
-        collections.map { it.id to it.name }
+    val categories: List<CartaCollection?> = listOf(null) + collections
     Column(
         Modifier.fillMaxWidth().selectableGroup().padding(bottom = WfSpacing.xs),
         verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)
     ) {
         categories.chunked(4).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(WfSpacing.xs)) {
-                row.forEach { (id, name) ->
-                    val selected = id == null
+                row.forEach { category ->
+                    val selected = category == null
                     Surface(
                         modifier = Modifier.weight(1f),
                         color = if (selected) scheme.primaryContainer else scheme.surface,
@@ -360,12 +350,12 @@ private fun ProductCategories(
                     ) {
                         Column(
                             Modifier.heightIn(min = WfSize.minTouchTarget)
-                                .selectable(selected, role = Role.Tab, onClick = { onSelect(id) })
+                                .selectable(selected, role = Role.Tab, onClick = { onSelect(category?.id) })
                                 .padding(horizontal = WfSpacing.xs, vertical = WfSpacing.sm),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(WfSpacing.xs, Alignment.CenterVertically)
                         ) {
-                            if (id == null) {
+                            if (category == null) {
                                 Icon(
                                     painterResource(R.drawable.ic_order_bag),
                                     contentDescription = null,
@@ -374,11 +364,15 @@ private fun ProductCategories(
                                 )
                             } else {
                                 CartaPhoto(
-                                    "carta/categorias/$id.png", description = null,
+                                    category.photo.ifBlank { "carta/categorias/${category.id}.png" }, description = null,
                                     modifier = Modifier.size(44.dp), contentScale = ContentScale.Fit
                                 )
                             }
-                            Text(name, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
+                            Text(
+                                category?.name ?: stringResource(R.string.order_all_categories),
+                                style = MaterialTheme.typography.labelSmall,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 package com.example.wfappops.carta
 
 import android.content.res.AssetManager
+import com.example.wfappops.carta.data.catalogHttpsUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -53,6 +54,53 @@ internal suspend fun loadOrderCarta(assets: AssetManager): Result<List<CartaColl
         }
     }
 
+internal fun parseRemoteOrderCarta(payload: JSONObject, assets: AssetManager): List<CartaCollection> {
+    val categories = payload.getJSONObject("data").getJSONArray("categories")
+    val customizations by lazy { assets.readJson("carta/personalizacion.json") }
+    val categoryIds = mutableSetOf<String>()
+    val productIds = mutableSetOf<String>()
+    return buildList {
+        for (index in 0 until categories.length()) {
+            val category = categories.getJSONObject(index)
+            if (category.optString("type") == "promotions") continue
+            val id = category.getString("id")
+            require(id.isNotBlank() && categoryIds.add(id))
+            val subcategories = category.getJSONArray("subcategories")
+            val sectionIds = mutableSetOf<String>()
+            val sections = List(subcategories.length()) { sectionIndex ->
+                val section = subcategories.getJSONObject(sectionIndex)
+                val sectionId = section.getString("id")
+                require(sectionId.isNotBlank() && sectionIds.add(sectionId))
+                val products = section.getJSONArray("products")
+                CartaSection(
+                    id = "$id/$sectionId",
+                    name = section.getString("name"),
+                    products = List(products.length()) { productIndex ->
+                        val product = products.getJSONObject(productIndex)
+                        val productId = product.getString("id")
+                        require(productId.isNotBlank() && productIds.add(productId))
+                        val groups = if (product.getBoolean("has_modifiers")) {
+                            checkNotNull(customizations.optJSONArray(product.getString("slug"))) {
+                                "Missing modifiers for catalog product $productId"
+                            }.modifierGroups().also { require(it.isNotEmpty()) }
+                        } else emptyList()
+                        CartaProduct(
+                            id = productId,
+                            name = product.getString("name"),
+                            description = product.getString("description"),
+                            priceInCents = product.priceInCents("price").also { require(it >= 0) },
+                            photos = emptyList(),
+                            modifierGroups = groups
+                        )
+                    }
+                )
+            }
+            val photo = category.optString("image").let { catalogHttpsUrl(it)?.toExternalForm() }.orEmpty()
+            add(CartaCollection(id, category.getString("label"), photo, sections))
+        }
+    }
+}
+
 private suspend fun loadCatalog(
     assets: AssetManager,
     path: String,
@@ -60,15 +108,12 @@ private suspend fun loadCatalog(
 ): Result<List<CartaCollection>> =
     withContext(Dispatchers.IO) {
         runCatching {
-            val catalog = assets.open(path).bufferedReader().use {
-                JSONObject(it.readText())
-            }
-            val customizations = assets.open("carta/personalizacion.json").bufferedReader().use {
-                JSONObject(it.readText())
-            }
-            collections(catalog, customizations)
+            collections(assets.readJson(path), assets.readJson("carta/personalizacion.json"))
         }
     }
+
+private fun AssetManager.readJson(path: String): JSONObject =
+    open(path).bufferedReader().use { JSONObject(it.readText()) }
 
 private fun JSONArray.collection(
     id: String,

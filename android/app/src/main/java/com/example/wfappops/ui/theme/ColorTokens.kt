@@ -25,7 +25,7 @@ internal object ColorTokens {
     // Superficies, texto y bordes
     val Surface = Color(0xFFFFFFFF)
     val Canvas = Color(0xFFFAF9F5)
-    val CartaCanvas = Color(0xFFF5F5F5)
+    val NeutralCanvas = Color(0xFFF5F5F5)
     val Sunken = Color(0xFFF1F0EA)
     val Ink = Color(0xFF000000)
     val Muted = Color(0xFF5F5F57)
