@@ -43,6 +43,7 @@ import com.example.wfappops.notifications.ReadyProductSoundSetting
 import com.example.wfappops.ui.components.StatusChip
 import com.example.wfappops.ui.components.WfButton
 import com.example.wfappops.ui.components.WfButtonStyle
+import com.example.wfappops.ui.components.WfScreenTitle
 import com.example.wfappops.ui.theme.WfThemeExtras
 import com.example.wfappops.ui.theme.StatusTone
 import com.example.wfappops.ui.theme.WfSpacing
@@ -54,81 +55,76 @@ internal fun AccountScreen(
     state: AccountUiState,
     business: TeamBusinessContext,
     onReloadProfile: () -> Unit,
-    onLogout: () -> Unit,
-    onOpenHistory: () -> Unit
+    onLogout: () -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
     val email = state.profileEmail
     var confirmLogout by rememberSaveable { mutableStateOf(false) }
 
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(WfSpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(WfSpacing.xl)
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
     ) {
-        Text(stringResource(R.string.auth_account), style = MaterialTheme.typography.headlineMedium)
-        ProfileIdentity(business.employeeName, email?.getOrNull())
-        if (email?.isFailure == true) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.profile_email_unavailable), Modifier.weight(1f),
-                    color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium
-                )
-                TextButton(onClick = onReloadProfile) { Text(stringResource(R.string.auth_retry)) }
-            }
-        }
-        ProfileSection(R.string.profile_business) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(WfSpacing.md),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    Modifier.size(40.dp).background(scheme.primaryContainer, MaterialTheme.shapes.medium),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(painterResource(R.drawable.ic_home), contentDescription = null, tint = scheme.primary)
-                }
-                Column {
+        WfScreenTitle(stringResource(R.string.auth_account))
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = WfSpacing.lg).padding(bottom = WfSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(WfSpacing.xl)
+        ) {
+            ProfileIdentity(business.employeeName, email?.getOrNull())
+            if (email?.isFailure == true) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        stringResource(R.string.profile_business_current),
-                        style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant
+                        stringResource(R.string.profile_email_unavailable), Modifier.weight(1f),
+                        color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium
                     )
-                    Text(business.businessName, style = MaterialTheme.typography.titleSmall)
+                    TextButton(onClick = onReloadProfile) { Text(stringResource(R.string.auth_retry)) }
                 }
             }
-        }
-        val scopeLabel = when (business.locationScope) {
-            "all" -> R.string.profile_locations_all
-            "selected" -> R.string.profile_locations_selected
-            else -> null
-        }
-        ProfileSection(R.string.profile_locations, scopeLabel) {
-            if (business.locations.isEmpty()) {
-                Text(stringResource(R.string.profile_locations_empty), color = scheme.onSurfaceVariant)
-            }
-            business.locations.forEachIndexed { index, location ->
-                if (index > 0) HorizontalDivider(color = scheme.outlineVariant)
-                Row(Modifier.fillMaxWidth().padding(vertical = WfSpacing.sm)) {
-                    Text(location.name, Modifier.weight(1f))
-                    if (location.code.isNotEmpty()) Text(location.code, color = scheme.onSurfaceVariant)
+            ProfileSection(R.string.profile_business) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(WfSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        Modifier.size(40.dp).background(scheme.primaryContainer, MaterialTheme.shapes.medium),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(painterResource(R.drawable.ic_home), contentDescription = null, tint = scheme.primary)
+                    }
+                    Column {
+                        Text(
+                            stringResource(R.string.profile_business_current),
+                            style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant
+                        )
+                        Text(business.businessName, style = MaterialTheme.typography.titleSmall)
+                    }
                 }
             }
-        }
-        ProfileSection(R.string.profile_app) {
-            Row(Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.profile_version), Modifier.weight(1f))
-                Text(state.appVersion, color = scheme.onSurfaceVariant)
+            val scopeLabel = when (business.locationScope) {
+                "all" -> R.string.profile_locations_all
+                "selected" -> R.string.profile_locations_selected
+                else -> null
             }
-        }
-        ProfileSection(R.string.profile_settings) {
-            ReadyProductSoundSetting()
-        }
-        WfButton(
-            text = stringResource(R.string.profile_order_history),
-            onClick = onOpenHistory,
-            style = WfButtonStyle.BACK,
-            fullWidth = true
-        )
-        if (!state.isSimulated) {
+            ProfileSection(R.string.profile_locations, scopeLabel) {
+                if (business.locations.isEmpty()) {
+                    Text(stringResource(R.string.profile_locations_empty), color = scheme.onSurfaceVariant)
+                }
+                business.locations.forEachIndexed { index, location ->
+                    if (index > 0) HorizontalDivider(color = scheme.outlineVariant)
+                    Row(Modifier.fillMaxWidth().padding(vertical = WfSpacing.sm)) {
+                        Text(location.name, Modifier.weight(1f))
+                        if (location.code.isNotEmpty()) Text(location.code, color = scheme.onSurfaceVariant)
+                    }
+                }
+            }
+            ProfileSection(R.string.profile_app) {
+                Row(Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.profile_version), Modifier.weight(1f))
+                    Text(state.appVersion, color = scheme.onSurfaceVariant)
+                }
+            }
+            ProfileSection(R.string.profile_settings) {
+                ReadyProductSoundSetting()
+            }
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)) {
                 WfButton(
                     text = stringResource(R.string.auth_logout), onClick = { confirmLogout = true },

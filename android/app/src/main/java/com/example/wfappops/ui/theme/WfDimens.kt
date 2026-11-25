@@ -42,6 +42,7 @@ internal object WfRadius {
 
 /** Tamaños mínimos de interacción y de controles. */
 internal object WfSize {
+    val statusStripeWidth = 4.dp
     /** Área táctil mínima (estándar de Android; también cumple en iOS). */
     val minTouchTarget = 48.dp
 

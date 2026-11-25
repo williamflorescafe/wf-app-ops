@@ -40,6 +40,12 @@ internal enum class WfButtonStyle {
     /** Acción principal: fondo verde bosque. */
     PRIMARY,
 
+    /** Acción secundaria con fondo verde suave, como en WF Team. */
+    SECONDARY,
+
+    /** Acción alternativa con contorno neutro. */
+    OUTLINED,
+
     /** Agregar un producto o avanzar al carrito. */
     PURCHASE,
 
@@ -87,6 +93,7 @@ internal fun WfButton(
     val border = if (!enabled && !isLoading) null else when (style) {
         WfButtonStyle.ALTERNATIVE -> BorderStroke(1.dp, scheme.secondary)
         WfButtonStyle.BACK -> BorderStroke(1.dp, scheme.outlineVariant)
+        WfButtonStyle.OUTLINED -> BorderStroke(1.dp, scheme.outline)
         else -> null
     }
 
@@ -131,6 +138,8 @@ private fun buttonColors(style: WfButtonStyle, keepColorsWhileLoading: Boolean):
     val scheme = MaterialTheme.colorScheme
     val (container, content) = when (style) {
         WfButtonStyle.PRIMARY -> scheme.primary to WfThemeExtras.onAdvanceAction
+        WfButtonStyle.SECONDARY -> scheme.primaryContainer to scheme.onPrimaryContainer
+        WfButtonStyle.OUTLINED -> Color.Transparent to scheme.primary
         WfButtonStyle.PURCHASE -> WfThemeExtras.purchaseAction to WfThemeExtras.onPurchaseAction
         WfButtonStyle.ALTERNATIVE -> Color.Transparent to scheme.secondary
         WfButtonStyle.BACK -> scheme.surface to scheme.primary
@@ -143,6 +152,8 @@ private fun buttonColors(style: WfButtonStyle, keepColorsWhileLoading: Boolean):
         contentColor = content,
         disabledContainerColor = if (keepColorsWhileLoading) {
             container
+        } else if (container == Color.Transparent) {
+            Color.Transparent
         } else {
             scheme.outlineVariant
         },

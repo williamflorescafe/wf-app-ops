@@ -137,19 +137,25 @@ internal data class StoredSession(
 )
 
 private fun VerifiedBusiness.toJson() = JSONObject()
+    .put("context_audience", "ops")
     .put("verified_at", verifiedAt.toEpochMilli())
     .put("business_id", context.businessId)
     .put("business_name", context.businessName)
     .put("employee_id", context.employeeId)
     .put("employee_name", context.employeeName)
     .put("access_version", context.accessVersion)
+    .put("membership_id", context.membershipId)
+    .put("permissions", JSONArray(context.permissions.toList()))
     .put("location_scope", context.locationScope)
     .put("locations", JSONArray(context.locations.map {
-        JSONObject().put("name", it.name).put("code", it.code)
+        JSONObject().put("id", it.id).put("name", it.name).put("code", it.code)
     }))
 
 private fun JSONObject.readVerifiedBusiness(): VerifiedBusiness {
+    // Un contexto guardado con el contrato de Team debe validarse de nuevo contra OPS.
+    require(getString("context_audience") == "ops")
     val locations = getJSONArray("locations")
+    val permissions = getJSONArray("permissions")
     return VerifiedBusiness(
         context = TeamBusinessContext(
             businessId = getString("business_id"),
@@ -157,10 +163,12 @@ private fun JSONObject.readVerifiedBusiness(): VerifiedBusiness {
             employeeName = getString("employee_name"),
             employeeId = getString("employee_id"),
             accessVersion = getString("access_version"),
+            membershipId = getString("membership_id"),
+            permissions = List(permissions.length()) { permissions.getString(it) }.toSet(),
             locationScope = getString("location_scope"),
             locations = List(locations.length()) { index ->
                 val item = locations.getJSONObject(index)
-                TeamLocation(item.getString("name"), item.getString("code"))
+                TeamLocation(item.getString("name"), item.getString("code"), item.getString("id"))
             }
         ),
         verifiedAt = Instant.ofEpochMilli(getLong("verified_at"))

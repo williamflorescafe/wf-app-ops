@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.AtomicFile
 import com.example.wfappops.R
 import com.example.wfappops.carta.CartaCollection
-import com.example.wfappops.carta.loadOrderCarta
 import com.example.wfappops.carta.parseRemoteOrderCarta
 import java.io.File
 import java.io.IOException
@@ -24,13 +23,11 @@ internal class OrderCatalogRepository(context: Context) {
     private val cache = endpoint?.let {
         AtomicFile(File(app.noBackupFilesDir, "order-catalog-${catalogFileKey(it)}.json"))
     }
-    private var bundled: List<CartaCollection>? = null
 
     fun observe() = flow<Result<List<CartaCollection>>> {
         val cached = readSnapshot()
         val local = cached?.collections?.let { Result.success(it) }
-            ?: bundled?.let { Result.success(it) }
-            ?: loadOrderCarta(app.assets).onSuccess { bundled = it }
+            ?: Result.failure(IOException("Catalog service unavailable"))
         if (local.isSuccess) emit(local)
 
         val refreshed = refreshLock.withLock { refresh(cached) }

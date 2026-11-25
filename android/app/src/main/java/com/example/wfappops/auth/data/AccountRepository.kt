@@ -2,54 +2,43 @@ package com.example.wfappops.auth.data
 
 import android.content.Context
 import android.net.ConnectivityManager
-import android.util.Patterns
 import com.example.wfappops.auth.model.TeamBusinessContext
 import com.example.wfappops.schedule.ScheduleCache
-import com.example.wfappops.schedule.ScheduleScope
-import com.example.wfappops.schedule.ScheduleSnapshot
-import java.io.FileNotFoundException
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.ProviderException
 import java.time.Instant
-import java.time.YearMonth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
-import org.json.JSONException
-import org.json.JSONObject
 
 internal class AccountRepository(context: Context) {
     private val app = context.applicationContext
     private val store = SessionStore(app)
     private val api = AuthApi(app)
     private val scheduleCache = ScheduleCache(app)
+    private val tablesCache = com.example.wfappops.tables.TablesCache(app)
 
     val isStaging = api.isStaging
     val appVersion = app.packageManager.getPackageInfo(app.packageName, 0).versionName.orEmpty()
 
-    suspend fun demoAccount(): DemoAccount? = withContext(Dispatchers.IO) {
-        if (!isStaging) return@withContext null
-        try {
-            app.assets.open("auth/team-context.json").bufferedReader().use { reader ->
-                val fixture = JSONObject(reader.readText())
-                val credentials = fixture.getJSONObject("credentials")
-                val email = credentials.getString("email")
-                if (!Patterns.EMAIL_ADDRESS.matcher(email).matches() ||
-                    credentials.getString("password").isBlank()
-                ) throw AuthApiException()
-                api.parseLoginToken(fixture.getJSONObject("login").toString())
-                DemoAccount(email, api.parseBusinessContext(fixture.getJSONObject("context").toString()))
-            }
-        } catch (_: FileNotFoundException) {
-            null
-        } catch (_: JSONException) {
-            throw AuthApiException()
-        }
-    }
-
     suspend fun restoreSession() = withContext(Dispatchers.IO) {
-        store.read().also { if (it == null) scheduleCache.invalidate() }
+        LegacyDemoCleanup(app).run()
+        val active = store.read()
+        if (active == null) {
+            scheduleCache.invalidate()
+            return@withContext null
+        }
+        // La caché de contexto nunca sustituye la validación del token al arrancar.
+        try {
+            RestoredAccount(active, api.profileEmail(active.token))
+        } catch (error: AuthApiException) {
+            if (error.status == 401) {
+                store.clear()
+                scheduleCache.invalidate()
+            }
+            throw error
+        }
     }
 
     fun hasNoNetwork(): Boolean =
@@ -80,7 +69,7 @@ internal class AccountRepository(context: Context) {
         scheduleCache.invalidate()
     }
 
-    suspend fun clearSession() = withContext(Dispatchers.IO) {
+    suspend fun clearSession() = withContext(Dispatchers.IO + NonCancellable) {
         store.clear()
         scheduleCache.invalidate()
     }
@@ -95,20 +84,15 @@ internal class AccountRepository(context: Context) {
 
     suspend fun profileEmail(active: StoredSession) = withContext(Dispatchers.IO) { api.profileEmail(active.token) }
 
-    suspend fun schedule(active: StoredSession, context: TeamBusinessContext, month: YearMonth) =
-        withContext(Dispatchers.IO) { api.schedule(active.token, context, month) }
-
-    fun scheduleLease() = scheduleCache.lease()
-
-    suspend fun readSchedule(scope: ScheduleScope, month: YearMonth, lease: Long) =
-        withContext(Dispatchers.IO) { scheduleCache.read(scope, month, lease) }
-
-    suspend fun saveSchedule(scope: ScheduleScope, month: YearMonth, snapshot: ScheduleSnapshot, lease: Long) =
-        withContext(Dispatchers.IO) { scheduleCache.save(scope, month, snapshot, lease) }
-
-    suspend fun invalidateSchedule() = withContext(Dispatchers.IO + NonCancellable) {
-        scheduleCache.invalidate()
-    }
+    suspend fun tables(active: StoredSession, businessId: String, locationId: String, refresh: Boolean = false) =
+        withContext(Dispatchers.IO) {
+            val verified = checkNotNull(active.verifiedBusiness).context
+            check(active.businessId == businessId && verified.businessId == businessId)
+            check("pos.tables.view" in verified.permissions && verified.locations.any { it.id == locationId })
+            val scope = org.json.JSONArray(listOf(businessId, verified.employeeId, verified.membershipId,
+                verified.accessVersion, locationId)).toString()
+            tablesCache.get(scope, locationId, refresh) { api.tables(active.token, businessId, locationId) }
+        }
 
     private fun save(active: StoredSession): Boolean = try {
         store.save(active)
@@ -122,4 +106,4 @@ internal class AccountRepository(context: Context) {
     }
 }
 
-internal data class DemoAccount(val email: String, val context: TeamBusinessContext)
+internal data class RestoredAccount(val session: StoredSession, val email: String)

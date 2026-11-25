@@ -1,6 +1,5 @@
 package com.example.wfappops.auth.viewmodel
 
-import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.wfappops.R
@@ -8,26 +7,21 @@ import com.example.wfappops.auth.ActiveOpsAccess
 import com.example.wfappops.auth.OpsAccess
 import com.example.wfappops.auth.data.AccountRepository
 import com.example.wfappops.auth.data.AuthApiException
-import com.example.wfappops.auth.data.DemoAccount
 import com.example.wfappops.auth.data.StoredSession
 import com.example.wfappops.auth.model.TeamBusiness
 import com.example.wfappops.auth.model.TeamBusinessContext
-import com.example.wfappops.schedule.ScheduleIssue
-import com.example.wfappops.schedule.ScheduleProtocolException
-import com.example.wfappops.schedule.ScheduleScope
-import com.example.wfappops.schedule.ScheduleSnapshot
-import com.example.wfappops.schedule.ScheduleState
+import com.example.wfappops.auth.model.LoginFieldIssue
+import com.example.wfappops.auth.model.validateLoginFields
+import com.example.wfappops.tables.LocationTables
+import java.time.Duration
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.ProviderException
 import java.time.Instant
-import java.time.YearMonth
 import javax.net.ssl.SSLException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -36,8 +30,6 @@ internal data class AccountUiState(
     val appVersion: String,
     val restoring: Boolean = true,
     val signedIn: Boolean = false,
-    val isSimulated: Boolean = false,
-    val demoLogin: Boolean = false,
     val loading: Boolean = false,
     val email: String = "",
     val password: String = "",
@@ -46,7 +38,11 @@ internal data class AccountUiState(
     val notice: AccountNotice? = null,
     val businesses: List<TeamBusiness>? = null,
     val businessContext: TeamBusinessContext? = null,
-    val profileEmail: Result<String>? = null
+    val profileEmail: Result<String>? = null,
+    val selectedLocationId: String? = null,
+    val tables: Result<LocationTables>? = null,
+    val tablesLoading: Boolean = false,
+    val tablesFetchedAt: Instant? = null
 )
 
 internal class AccountViewModel(
@@ -57,22 +53,21 @@ internal class AccountViewModel(
     val uiState = state.asStateFlow()
 
     private var session: StoredSession? = null
-    private var demoAccount: DemoAccount? = null
     private var profileJob: Job? = null
+    private var tablesJob: Job? = null
 
     init {
+        val startupStartedAt = android.os.SystemClock.elapsedRealtime()
         runWork {
             try {
-                demoAccount = repository.demoAccount()
-                if (demoAccount != null) {
-                    state.update { it.copy(demoLogin = true) }
-                } else {
-                    session = repository.restoreSession()
-                    state.update { it.copy(signedIn = session != null) }
-                    loadBusinessAccess()
-                }
+                val restored = repository.restoreSession()
+                session = restored?.session
+                state.update { it.copy(signedIn = session != null, profileEmail = restored?.let { Result.success(it.email) }) }
+                loadBusinessAccess()
             } finally {
                 state.update { it.copy(restoring = false) }
+                if (repository.isStaging) android.util.Log.d("OpsStartupTiming",
+                    "Session restoration completed in ${android.os.SystemClock.elapsedRealtime() - startupStartedAt} ms; businessReady=${state.value.businessContext != null}")
             }
         }
     }
@@ -86,23 +81,15 @@ internal class AccountViewModel(
     fun login() {
         val current = state.value
         if (current.loading || current.signedIn) return
-        demoAccount?.let { demo ->
-            ActiveOpsAccess.current = OpsAccess(demo.context.businessId, simulated = true)
-            state.update {
-                it.copy(email = "", password = "", notice = null, signedIn = true,
-                    isSimulated = true, businessContext = demo.context)
-            }
-            return
-        }
-
         val address = current.email.trim()
         val secret = current.password
-        val emailError = when {
-            address.isEmpty() -> text(R.string.auth_required)
-            !Patterns.EMAIL_ADDRESS.matcher(address).matches() -> text(R.string.auth_invalid_email)
-            else -> null
+        val validation = validateLoginFields(address, secret)
+        val emailError = when (validation.email) {
+            LoginFieldIssue.REQUIRED -> text(R.string.auth_required)
+            LoginFieldIssue.INVALID_EMAIL -> text(R.string.auth_invalid_email)
+            null -> null
         }
-        val passwordError = if (secret.isEmpty()) text(R.string.auth_required) else null
+        val passwordError = if (validation.password != null) text(R.string.auth_required) else null
         state.update { it.copy(emailError = emailError, passwordError = passwordError, notice = null) }
         if (emailError != null || passwordError != null) return
 
@@ -130,17 +117,60 @@ internal class AccountViewModel(
     fun logout() {
         val active = session ?: return
         runWork {
-            clearSession()
-            repository.logout(active)
+            try {
+                repository.logout(active)
+            } finally {
+                clearSession()
+            }
+        }
+    }
+
+    /** Caché en memoria de cinco minutos, ligada a la sesión y al contexto de acceso. */
+    fun loadTables(locationId: String, refresh: Boolean = false) {
+        val active = session ?: return
+        val context = state.value.businessContext ?: return
+        if ("pos.tables.view" !in context.permissions ||
+            context.locations.none { it.id == locationId } || !Regex("[1-9][0-9]*").matches(locationId)
+        ) return
+        val current = state.value
+        if (current.selectedLocationId == locationId) {
+            if (tablesJob?.isActive == true) return
+            val age = current.tablesFetchedAt?.let { Duration.between(it, Instant.now()) }
+            if (!refresh && current.tables?.isSuccess == true && age != null &&
+                !age.isNegative && age < Duration.ofMinutes(5)
+            ) return
+        }
+        tablesJob?.cancel()
+        state.update {
+            it.copy(
+                selectedLocationId = locationId,
+                tables = current.tables.takeIf { refresh && current.selectedLocationId == locationId && it?.isSuccess == true },
+                tablesLoading = true,
+                tablesFetchedAt = null
+            )
+        }
+        fun stillCurrent() = session === active && state.value.businessContext == context &&
+            state.value.selectedLocationId == locationId
+        tablesJob = viewModelScope.launch {
+            val result = try {
+                Result.success(repository.tables(active, context.businessId, locationId, refresh))
+            } catch (error: IOException) {
+                if (!stillCurrent()) return@launch
+                if (error is AuthApiException && error.status == 401) {
+                    clearSession()
+                    notify(R.string.auth_session_expired, isError = false)
+                    return@launch
+                }
+                Result.failure(error)
+            }
+            if (stillCurrent()) state.update {
+                it.copy(tables = result, tablesLoading = false, tablesFetchedAt = if (result.isSuccess) Instant.now() else null)
+            }
         }
     }
 
     fun loadProfile() {
         if (profileJob?.isActive == true || state.value.profileEmail?.isSuccess == true) return
-        if (state.value.isSimulated) {
-            state.update { it.copy(profileEmail = demoAccount?.let { demo -> Result.success(demo.email) }) }
-            return
-        }
         val active = session ?: return
         state.update { it.copy(profileEmail = null) }
         profileJob = viewModelScope.launch {
@@ -157,83 +187,6 @@ internal class AccountViewModel(
             }
             if (session === active) state.update { it.copy(profileEmail = result) }
         }
-    }
-
-    fun schedule(month: YearMonth): Flow<ScheduleState> = flow {
-        if (state.value.isSimulated) {
-            emit(ScheduleState(issue = ScheduleIssue.DEMO))
-            return@flow
-        }
-        val active = session ?: return@flow
-        var context = state.value.businessContext ?: return@flow
-        fun stillCurrent() = session === active && state.value.businessContext == context
-        val environment = if (state.value.isStaging) "stg" else "prod"
-        val scope = ScheduleScope("$environment:${context.businessId}", context.employeeId)
-        var lease = repository.scheduleLease()
-        var cached = repository.readSchedule(scope, month, lease)
-        if (!stillCurrent()) return@flow
-        emit(ScheduleState(cached, refreshing = true))
-
-        try {
-            val shifts = try {
-                repository.schedule(active, context, month)
-            } catch (error: AuthApiException) {
-                if (error.code != "iam.access_changed" || !stillCurrent()) throw error
-                cached = null
-                repository.invalidateSchedule()
-                if (!stillCurrent()) return@flow
-                emit(ScheduleState(refreshing = true))
-                context = refreshScheduleContext(active, context) ?: return@flow
-                lease = repository.scheduleLease()
-                repository.schedule(active, context, month)
-            }
-            if (!stillCurrent()) return@flow
-            val snapshot = ScheduleSnapshot(shifts, Instant.now())
-            val saved = repository.saveSchedule(scope, month, snapshot, lease)
-            if (stillCurrent()) emit(ScheduleState(snapshot, issue = if (saved) null else ScheduleIssue.CACHE))
-        } catch (error: AuthApiException) {
-            if (!stillCurrent()) return@flow
-            when {
-                error.status == 401 -> runWork {
-                    if (session === active) {
-                        clearSession()
-                        notify(R.string.auth_session_expired, isError = false)
-                    }
-                }
-                error.status == 403 || error.code == "iam.access_changed" -> {
-                    repository.invalidateSchedule()
-                    emit(ScheduleState(issue = ScheduleIssue.DENIED))
-                }
-                else -> emit(ScheduleState(cached, issue = ScheduleIssue.UNAVAILABLE))
-            }
-        } catch (_: ScheduleProtocolException) {
-            if (stillCurrent()) emit(ScheduleState(cached, issue = ScheduleIssue.UNAVAILABLE))
-        } catch (_: IOException) {
-            if (stillCurrent()) emit(ScheduleState(cached, issue = ScheduleIssue.CONNECTION))
-        }
-    }
-
-    private suspend fun refreshScheduleContext(active: StoredSession, previous: TeamBusinessContext): TeamBusinessContext? {
-        val refreshed = try {
-            repository.businessContext(active, previous.businessId)
-        } catch (error: AuthApiException) {
-            if (error.status != 403) throw error
-            null
-        }
-        if (session !== active || state.value.businessContext != previous) return null
-        if (refreshed == null || refreshed.employeeId != previous.employeeId) {
-            runWork {
-                if (session === active && state.value.businessContext == previous) {
-                    confirmBusiness(null)
-                    forgetBusiness(active)
-                    notify(R.string.auth_business_access_changed, isError = false)
-                    loadBusinessAccess()
-                }
-            }
-            return null
-        }
-        confirmBusiness(refreshed)
-        return refreshed
     }
 
     private suspend fun loadBusinessAccess() {
@@ -308,16 +261,19 @@ internal class AccountViewModel(
     }
 
     private fun showError(error: AuthApiException) {
-        if (!state.value.signedIn && error.code == "validation_failed") {
+        if (!state.value.signedIn && error.status == 422) {
             val emailError = error.fieldErrors["email"]
             val passwordError = error.fieldErrors["password"]
             state.update { it.copy(emailError = emailError, passwordError = passwordError) }
             if (emailError != null || passwordError != null) return
         }
         val message = when {
-            error.code == "iam.two_factor_unsupported" -> text(R.string.auth_two_factor_unsupported)
+            error.status == 401 -> text(R.string.auth_session_expired)
+            error.status in 400..599 && error.serverMessage != null -> error.serverMessage
+            error.status == 403 -> text(R.string.auth_forbidden)
+            error.status == 422 -> text(R.string.auth_validation_error)
             error.status == 429 -> text(R.string.auth_rate_limit)
-            error.status in 400..499 && error.serverMessage != null -> error.serverMessage
+            error.status in 500..599 -> text(R.string.auth_server_error)
             else -> text(R.string.auth_request_error)
         }
         state.update { it.copy(notice = AccountNotice(message, isError = true)) }
@@ -326,8 +282,11 @@ internal class AccountViewModel(
     private suspend fun clearSession() {
         session = null
         profileJob?.cancel()
+        tablesJob?.cancel()
         ActiveOpsAccess.current = null
-        state.update { it.copy(signedIn = false, businessContext = null, businesses = null, profileEmail = null) }
+        state.update {
+            AccountUiState(it.isStaging, it.appVersion, restoring = false, loading = it.loading)
+        }
         repository.clearSession()
     }
 
@@ -335,14 +294,24 @@ internal class AccountViewModel(
         val previous = state.value.businessContext
         val identityChanged = previous?.businessId != context?.businessId || previous?.employeeId != context?.employeeId
         if (identityChanged) profileJob?.cancel()
-        ActiveOpsAccess.current = context?.let { OpsAccess(it.businessId, state.value.isSimulated) }
-        state.update { it.copy(businessContext = context, profileEmail = it.profileEmail.takeUnless { identityChanged }) }
+        val contextChanged = previous != context
+        if (contextChanged) tablesJob?.cancel()
+        ActiveOpsAccess.current = context?.let { OpsAccess(it.businessId) }
+        state.update {
+            it.copy(
+                businessContext = context, profileEmail = it.profileEmail.takeUnless { identityChanged },
+                selectedLocationId = it.selectedLocationId.takeUnless { contextChanged },
+                tables = it.tables.takeUnless { contextChanged },
+                tablesFetchedAt = it.tablesFetchedAt.takeUnless { contextChanged },
+                tablesLoading = it.tablesLoading && !contextChanged
+            )
+        }
     }
 
     override fun onCleared() {
         val current = state.value
         val context = current.businessContext ?: return
-        if (ActiveOpsAccess.current == OpsAccess(context.businessId, current.isSimulated)) ActiveOpsAccess.current = null
+        if (ActiveOpsAccess.current == OpsAccess(context.businessId)) ActiveOpsAccess.current = null
     }
 
     private fun notify(message: Int, isError: Boolean = true) {

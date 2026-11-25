@@ -123,6 +123,34 @@ class TableServiceTest {
     }
 
     @Test
+    fun orderLineAdvancesIndividuallyAndRepeatedEventsPreserveTimestamps() {
+        val opened = TableService().open(1, pablito)
+        val id = requireNotNull(opened.openVisit(1)).id
+        val sentAt = Instant.EPOCH
+        var service = opened.add(id, cappuccino).add(id, brownie).sendLocally(id, pablito, sentAt)
+        val key = DispatchLineKey(id, 0, 0)
+        val states = listOf(KitchenItemStatus.SENT, KitchenItemStatus.IN_PREPARATION, KitchenItemStatus.READY)
+        val transitions = states + KitchenItemStatus.DELIVERED
+        states.forEachIndexed { index, expected ->
+            val changedAt = sentAt.plusSeconds(index.toLong() + 1)
+            service = service.advanceOrderLine(key, expected, changedAt)
+            assertEquals(transitions[index + 1], service.openVisit(1)?.dispatches?.single()?.lines?.first()?.dispatchStatus)
+            assertEquals(service, service.advanceOrderLine(key, expected, changedAt.plusSeconds(1)))
+            assertEquals(KitchenItemStatus.SENT, service.openVisit(1)?.dispatches?.single()?.lines?.last()?.dispatchStatus)
+        }
+        val line = requireNotNull(service.openVisit(1)).dispatches.single().lines.first()
+        assertEquals(sentAt.plusSeconds(1), line.preparationStartedAt)
+        assertEquals(sentAt.plusSeconds(2), line.readyAt)
+        assertEquals(sentAt.plusSeconds(3), line.deliveredAt)
+        assertFalse(requireNotNull(service.openVisit(1)).canSendToCashier)
+        val canceled = service.cancelLocalLines(id, 0, setOf(1), pablito, sentAt.plusSeconds(4))
+        assertTrue(requireNotNull(canceled.openVisit(1)).canSendToCashier)
+        assertEquals(canceled, canceled.advanceOrderLine(DispatchLineKey(id, 0, 1), KitchenItemStatus.SENT, sentAt.plusSeconds(5)))
+        val closed = canceled.sendToCashier(id, pablito, sentAt.plusSeconds(6))
+        assertEquals(closed, closed.advanceOrderLine(key, KitchenItemStatus.READY, sentAt.plusSeconds(7)))
+    }
+
+    @Test
     fun readyNoticesAccumulateAcrossTablesForTheEmployeeWhoSentEachProduct() {
         val sameName = juanito.copy(name = pablito.name)
         val opened = TableService().open(1, sameName).open(2, pablito)
@@ -210,7 +238,7 @@ class TableServiceTest {
     }
 
     @Test
-    fun firstDispatchAssignsIdentityAndLaterDispatchesKeepIt() {
+    fun firstDraftProductAssignsIdentityAndLaterDispatchesKeepIt() {
         val started = TableService().open(4, pablito).open(5, juanito)
         val first = requireNotNull(started.openVisit(4))
         val second = requireNotNull(started.openVisit(5))
@@ -218,8 +246,13 @@ class TableServiceTest {
         assertNull(first.orderStartedAt)
         val firstTime = Instant.parse("2026-11-11T15:30:00Z")
         val secondTime = firstTime.plusSeconds(60)
-        val sent = started.add(second.id, brownie).sendLocally(second.id, juanito, firstTime)
-            .add(first.id, cappuccino).sendLocally(first.id, pablito, firstTime)
+        val draft = started.add(second.id, brownie, firstTime, juanito)
+        assertEquals(1, draft.openVisit(5)?.orderNumber)
+        assertEquals(firstTime, draft.openVisit(5)?.orderStartedAt)
+        assertTrue(draft.openVisit(5)!!.dispatches.isEmpty())
+        assertEquals(RegisteredOrderStatus.DRAFT, draft.ordersBy(juanito.id).single().status)
+        val sent = draft.sendLocally(second.id, juanito, secondTime)
+            .add(first.id, cappuccino, firstTime, pablito).sendLocally(first.id, pablito, firstTime)
             .add(first.id, brownie).sendLocally(first.id, juanito, secondTime)
 
         assertEquals(2, sent.openVisit(4)?.orderNumber)

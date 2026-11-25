@@ -149,7 +149,7 @@ private fun LoginScreen(
             )
             Spacer(Modifier.height(WfSpacing.xs))
             WfButton(
-                text = stringResource(if (state.demoLogin) R.string.auth_continue else R.string.auth_login),
+                text = stringResource(R.string.auth_login),
                 onClick = submit,
                 isLoading = state.loading,
                 fullWidth = true

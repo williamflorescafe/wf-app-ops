@@ -1,6 +1,7 @@
 package com.example.wfappops.notifications
 
 import android.Manifest
+import android.content.Context
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,27 +41,34 @@ internal fun ReadyProductNotifications(recipient: ReadyNotificationRecipient?) {
     }
     LaunchedEffect(notifier, recipient, enabled) {
         if (recipient == null || !enabled) return@LaunchedEffect
-        OrderRepository(context, recipient.storageId)
-            .observe { it.readyNoticesFor(recipient.employeeId) }
+        readyProductNotices(context, recipient)
             .catch { error -> Log.w("ReadyProductNotifications", "Could not read ready products", error) }
             .collect { notices -> notifier.sync(recipient, notices) }
     }
 }
 
+/** Observa el mismo almacenamiento personal que usa el flujo manual de comandas. */
+internal fun readyProductNotices(context: Context, recipient: ReadyNotificationRecipient) =
+    OrderRepository(context, recipient.storageId, localDraftEmployeeId = recipient.employeeId)
+        .observe { it.readyNoticesFor(recipient.employeeId) }
+
 @Composable
 internal fun ReadyProductSoundSetting() {
     val context = LocalContext.current.applicationContext
     val notifier = remember(context) { ReadyProductNotifier(context) }
-    var soundIssue by remember(notifier) { mutableStateOf(notifier.soundIssue()) }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { soundIssue = notifier.soundIssue() }
 
     WfButton(
-        text = stringResource(R.string.ready_notification_sound),
-        onClick = notifier::openSoundSettings,
+        text = stringResource(R.string.notification_configure),
+        onClick = {
+            val issue = notifier.requirementsIssue()
+            if (issue == null) notifier.openSoundSettings() else notifier.openRequiredSettings(issue)
+        },
         style = WfButtonStyle.BACK,
         fullWidth = true
     )
-    soundIssue?.let { message ->
-        Text(stringResource(message), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    Text(
+        stringResource(R.string.notification_configuration_hint),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }

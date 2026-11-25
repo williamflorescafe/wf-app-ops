@@ -5,6 +5,7 @@ import com.example.wfappops.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,7 +31,10 @@ import com.example.wfappops.ui.theme.WfThemeExtras
  * Los lectores de pantalla lo anuncian al aparecer.
  */
 @Composable
-internal fun InlineMessage(text: String, tone: StatusTone, modifier: Modifier = Modifier) {
+internal fun InlineMessage(
+    text: String, tone: StatusTone, modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null
+) {
     val colors = WfThemeExtras.statusColors.of(tone)
     Row(
         modifier = modifier
@@ -39,10 +43,13 @@ internal fun InlineMessage(text: String, tone: StatusTone, modifier: Modifier = 
             .padding(horizontal = WfSpacing.lg, vertical = WfSpacing.md)
             .semantics { liveRegion = LiveRegionMode.Polite },
         horizontalArrangement = Arrangement.spacedBy(WfSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = if (action == null) Alignment.CenterVertically else Alignment.Top,
     ) {
-        val icon = if (tone == StatusTone.CRITICAL) R.drawable.ic_error else R.drawable.ic_check_circle
+        val icon = if (tone == StatusTone.CRITICAL || tone == StatusTone.WARNING) R.drawable.ic_error else R.drawable.ic_check_circle
         Icon(painterResource(icon), contentDescription = null, tint = colors.content, modifier = Modifier.size(20.dp))
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.content)
+        Column(Modifier.weight(1f)) {
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.content)
+            action?.invoke()
+        }
     }
 }

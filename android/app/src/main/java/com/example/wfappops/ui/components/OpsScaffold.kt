@@ -16,12 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,16 +29,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
 import com.example.wfappops.ui.theme.WfThemeExtras
 
-internal enum class OpsTab(val label: Int, val icon: Int) {
-    HOME(R.string.ops_home, R.drawable.ic_home),
+internal enum class OpsTab(val label: Int, val icon: Int, val selectedIcon: Int = icon) {
+    HOME(R.string.ops_home, R.drawable.ic_home, R.drawable.ic_home_filled),
+    ORDERS(R.string.ops_orders, R.drawable.ic_order_bag, R.drawable.ic_order_bag_filled),
+    TABLES(R.string.tables_title, R.drawable.ic_tables, R.drawable.ic_tables_filled),
     CARTA(R.string.ops_carta, R.drawable.ic_carta_cup),
     KITCHEN(R.string.ops_kitchen, R.drawable.ic_kitchen),
-    PROFILE(R.string.ops_profile, R.drawable.ic_person)
+    PROFILE(R.string.ops_profile, R.drawable.ic_person, R.drawable.ic_person_filled)
 }
 
 internal class CartShortcut(val count: Long, val total: String, val onOpen: () -> Unit)
@@ -71,11 +68,13 @@ internal fun OpsScaffold(
 internal fun OpsBottomBar(
     selected: OpsTab?,
     onSelect: (OpsTab) -> Unit,
-    cart: CartShortcut? = null
+    cart: CartShortcut? = null,
+    onCreateOrder: (() -> Unit)? = null,
+    createOrderEnabled: Boolean = true
 ) {
     val scheme = MaterialTheme.colorScheme
+    val tabs = OpsTab.entries.filterNot { it == OpsTab.CARTA || it == OpsTab.KITCHEN }
     Column(Modifier.fillMaxWidth()) {
-        HorizontalDivider(color = scheme.outlineVariant)
         if (cart != null) {
             Surface(color = scheme.surfaceContainerLowest) {
                 Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
@@ -83,33 +82,14 @@ internal fun OpsBottomBar(
                 }
             }
         }
-        NavigationBar(
-            containerColor = scheme.surfaceContainerLowest,
-            tonalElevation = 0.dp
-        ) {
-            OpsTab.entries.filterNot { it == OpsTab.CARTA }.forEach { tab ->
-                NavigationBarItem(
-                    selected = tab == selected,
-                    onClick = { onSelect(tab) },
-                    icon = { Icon(painterResource(tab.icon), contentDescription = null, Modifier.size(24.dp)) },
-                    label = {
-                        Text(
-                            stringResource(tab.label),
-                            style = MaterialTheme.typography.labelMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = scheme.primary,
-                        selectedTextColor = scheme.primary,
-                        indicatorColor = scheme.primaryContainer,
-                        unselectedIconColor = scheme.onSurfaceVariant,
-                        unselectedTextColor = scheme.onSurfaceVariant
-                    )
-                )
+        WfBottomBar(
+            items = tabs.map { WfBottomBarItem(stringResource(it.label), it.icon, it.selectedIcon) },
+            selectedIndex = tabs.indexOf(selected),
+            onSelect = { onSelect(tabs[it]) },
+            centerAction = onCreateOrder?.let { action ->
+                WfBottomBarAction(stringResource(R.string.home_create_order), R.drawable.ic_carta_add, action, createOrderEnabled)
             }
-        }
+        )
     }
 }
 

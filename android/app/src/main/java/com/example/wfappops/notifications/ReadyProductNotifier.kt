@@ -10,9 +10,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.os.VibratorManager
+import android.os.Vibrator
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
@@ -33,16 +36,38 @@ internal class ReadyProductNotifier(context: Context) {
     fun enabled(): Boolean = manager.areNotificationsEnabled() &&
         manager.getNotificationChannel(CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
 
-    fun soundIssue(): Int? {
-        if (!enabled()) return R.string.ready_notification_disabled
+    fun requirementsIssue(): NotificationIssue? {
+        ensureChannel()
         val channel = manager.getNotificationChannel(CHANNEL)
-        val sound = if (channel == null) defaultSound else channel.sound
-        val defaultIsSilent = sound != null && RingtoneManager.isDefault(sound) &&
-            RingtoneManager.getActualDefaultRingtoneUri(app, RingtoneManager.TYPE_NOTIFICATION) == null
-        if (sound == null || defaultIsSilent || (channel != null && channel.importance < NotificationManager.IMPORTANCE_DEFAULT)) {
-            return R.string.ready_notification_silent
+        val audio = checkNotNull(app.getSystemService(AudioManager::class.java))
+        val canVibrate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            app.getSystemService(VibratorManager::class.java)?.defaultVibrator?.hasVibrator() == true
+        } else {
+            app.getSystemService(Vibrator::class.java)?.hasVibrator() == true
         }
-        return null
+        val sound = channel?.sound
+        val soundConfigured = sound != null && (!RingtoneManager.isDefault(sound) ||
+            RingtoneManager.getActualDefaultRingtoneUri(app, RingtoneManager.TYPE_NOTIFICATION) != null)
+        return NotificationReadiness(
+            allowed = enabled(),
+            channelSound = soundConfigured && (channel?.importance ?: 0) >= NotificationManager.IMPORTANCE_DEFAULT,
+            hasVibrator = canVibrate,
+            channelVibration = channel?.shouldVibrate() == true,
+            deviceAudible = audio.ringerMode == AudioManager.RINGER_MODE_NORMAL && audio.getStreamVolume(AudioManager.STREAM_NOTIFICATION) > 0,
+            doNotDisturb = manager.currentInterruptionFilter !in listOf(NotificationManager.INTERRUPTION_FILTER_ALL, NotificationManager.INTERRUPTION_FILTER_UNKNOWN)
+        ).issue
+    }
+
+    fun openRequiredSettings(issue: NotificationIssue) {
+        if (issue == NotificationIssue.PERMISSION || issue == NotificationIssue.CHANNEL) {
+            openSoundSettings()
+            return
+        }
+        try {
+            app.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: ActivityNotFoundException) {
+            app.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
     }
 
     fun openSoundSettings() {
@@ -112,6 +137,7 @@ internal class ReadyProductNotifier(context: Context) {
         ).apply {
             description = app.getString(R.string.ready_notification_channel_description)
             setSound(defaultSound, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build())
+            enableVibration(true)
         })
     }
 
@@ -148,7 +174,7 @@ internal class ReadyProductNotifier(context: Context) {
     }
 
     private fun message(notice: ReadyProductNotice): String {
-        val table = app.getString(R.string.order_table_number, notice.table)
+        val table = notice.tableLabel ?: app.getString(R.string.order_table_number, notice.table)
         val product = if (notice.quantity == 1) notice.product else {
             app.getString(R.string.kitchen_quantity, notice.quantity, notice.product)
         }

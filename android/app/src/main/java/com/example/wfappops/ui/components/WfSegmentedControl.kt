@@ -2,11 +2,13 @@ package com.example.wfappops.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -20,10 +22,35 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.ui.theme.WfSize
 import com.example.wfappops.ui.theme.WfSpacing
 import com.example.wfappops.ui.theme.WfThemeExtras
+
+@Composable
+internal fun WfFilteredHeader(
+    title: String,
+    labels: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = WfSpacing.lg, top = WfSpacing.xl, end = WfSpacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        WfTitleText(title)
+        if (labels.isNotEmpty()) {
+            WfSegmentedControl(
+                labels = labels,
+                selectedIndex = selectedIndex,
+                onSelect = onSelect,
+                modifier = Modifier.padding(start = WfSpacing.sm).weight(1f, fill = false).widthIn(max = 220.dp)
+            )
+        }
+    }
+}
 
 @Composable
 internal fun WfSegmentedControl(
@@ -45,7 +72,7 @@ internal fun WfSegmentedControl(
                 val selected = selectedIndex == index
                 Box(
                     Modifier.weight(1f)
-                        .heightIn(min = WfSize.compactControl - WfSpacing.xxs * 2)
+                        .heightIn(min = WfSize.minTouchTarget - WfSpacing.xxs * 2)
                         .clip(CircleShape)
                         .background(if (selected) scheme.primary else Color.Transparent)
                         .selectable(selected, role = Role.RadioButton, onClick = { onSelect(index) })
@@ -55,7 +82,8 @@ internal fun WfSegmentedControl(
                     Text(
                         label,
                         textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
                         color = if (selected) WfThemeExtras.onAdvanceAction else scheme.onSurface
                     )
                 }

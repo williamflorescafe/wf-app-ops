@@ -73,6 +73,12 @@ internal class TableStore(context: Context, businessId: String) {
             TableVisit(
                 id = visit.getString("id"),
                 table = visit.getInt("table"),
+                numberReserved = visit.optBoolean("numberReserved", false),
+                remoteTableId = visit.optString("remoteTableId").takeUnless { visit.isNull("remoteTableId") },
+                locationId = visit.optString("locationId").takeUnless { visit.isNull("locationId") },
+                tableName = visit.optString("tableName").takeUnless { visit.isNull("tableName") },
+                tableCode = visit.optString("tableCode").takeUnless { visit.isNull("tableCode") },
+                locationName = visit.optString("locationName").takeUnless { visit.isNull("locationName") },
                 closed = visit.getBoolean("closed"),
                 draft = visit.getJSONArray("draft").readItems(::readLine),
                 dispatches = dispatches,
@@ -108,6 +114,12 @@ internal class TableStore(context: Context, businessId: String) {
 private fun TableVisit.toJson() = JSONObject()
     .put("id", id)
     .put("table", table)
+    .put("numberReserved", numberReserved)
+    .put("remoteTableId", remoteTableId)
+    .put("locationId", locationId)
+    .put("tableName", tableName)
+    .put("tableCode", tableCode)
+    .put("locationName", locationName)
     .put("closed", closed)
     .put("openedAt", openedAt?.toEpochMilli())
     .put("orderNumber", orderNumber)

@@ -7,7 +7,8 @@ internal data class ReadyProductNotice(
     val table: Int,
     val product: String,
     val quantity: Int,
-    val readyAt: Instant
+    val readyAt: Instant,
+    val tableLabel: String? = null
 )
 
 internal fun TableService.readyNoticesFor(employeeId: String): List<ReadyProductNotice> = visits
@@ -22,7 +23,8 @@ internal fun TableService.readyNoticesFor(employeeId: String): List<ReadyProduct
                     table = visit.table,
                     product = line.product,
                     quantity = line.quantity,
-                    readyAt = line.readyAt ?: dispatch.sentAt
+                    readyAt = line.readyAt ?: dispatch.sentAt,
+                    tableLabel = visit.tableCode ?: visit.tableName
                 )
             }
         }

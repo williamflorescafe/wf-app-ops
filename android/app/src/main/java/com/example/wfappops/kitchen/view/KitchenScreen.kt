@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -43,7 +42,7 @@ import com.example.wfappops.orders.model.KitchenItemStatus
 import com.example.wfappops.orders.model.KitchenLine
 import com.example.wfappops.orders.view.KitchenStatusLabel
 import com.example.wfappops.tables.tableZone
-import com.example.wfappops.ui.components.WfSegmentedControl
+import com.example.wfappops.ui.components.WfFilteredHeader
 import com.example.wfappops.ui.theme.WfThemeExtras
 import com.example.wfappops.ui.theme.WfSize
 import com.example.wfappops.ui.theme.WfSpacing
@@ -52,12 +51,12 @@ import java.time.format.DateTimeFormatter
 private val kitchenTime = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(tableZone)
 
 @Composable
-internal fun KitchenRoute(viewModel: KitchenViewModel, storageId: String, employeeId: String, simulated: Boolean) {
+internal fun KitchenRoute(viewModel: KitchenViewModel, storageId: String, employeeId: String, available: Boolean = false) {
     val current by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(storageId, simulated) { if (simulated) viewModel.load(storageId) }
-    val state = current.takeIf { simulated && it.storageId == storageId } ?: KitchenUiState()
+    LaunchedEffect(storageId) { viewModel.clear() }
+    val state = current.takeIf { available && it.storageId == storageId } ?: KitchenUiState()
     KitchenScreen(
-        state, employeeId, simulated,
+        state, employeeId, available,
         onFilter = viewModel::filterByOwner,
         onRetry = { viewModel.load(storageId, retry = true) },
         onAdvance = viewModel::advance
@@ -68,7 +67,7 @@ internal fun KitchenRoute(viewModel: KitchenViewModel, storageId: String, employ
 private fun KitchenScreen(
     state: KitchenUiState,
     employeeId: String,
-    simulated: Boolean,
+    available: Boolean,
     onFilter: (Boolean) -> Unit,
     onRetry: () -> Unit,
     onAdvance: (KitchenLine) -> Unit
@@ -80,20 +79,11 @@ private fun KitchenScreen(
     var confirmedExpanded by rememberSaveable(state.storageId) { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = WfSpacing.lg, top = WfSpacing.xl, end = WfSpacing.lg),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(stringResource(R.string.ops_kitchen), style = MaterialTheme.typography.titleLarge)
-            if (simulated) {
-                WfSegmentedControl(
-                    labels = listOf(stringResource(R.string.kitchen_filter_mine), stringResource(R.string.kitchen_filter_all)),
-                    selectedIndex = if (state.onlyMine) 0 else 1,
-                    onSelect = { onFilter(it == 0) },
-                    modifier = Modifier.padding(start = WfSpacing.sm).weight(1f, fill = false).widthIn(max = 220.dp)
-                )
-            }
+        val filterLabels = if (available) {
+            listOf(stringResource(R.string.kitchen_filter_mine), stringResource(R.string.kitchen_filter_all))
+        } else emptyList()
+        WfFilteredHeader(stringResource(R.string.ops_kitchen), filterLabels, if (state.onlyMine) 0 else 1) {
+            onFilter(it == 0)
         }
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
@@ -104,7 +94,7 @@ private fun KitchenScreen(
                 Text(stringResource(R.string.kitchen_save_error), color = MaterialTheme.colorScheme.error)
             }
             when {
-                !simulated -> item { Text(stringResource(R.string.kitchen_unavailable)) }
+                !available -> item { Text(stringResource(R.string.kitchen_unavailable)) }
                 result == null -> item { CircularProgressIndicator(Modifier.padding(WfSpacing.sm)) }
                 queue == null -> item {
                     Column {

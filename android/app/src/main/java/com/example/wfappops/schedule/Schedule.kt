@@ -26,7 +26,7 @@ internal class ScheduleProtocolException(message: String) : IOException(message)
 
 internal data class ScheduleSnapshot(val shifts: List<ScheduledShift>, val updatedAt: Instant)
 
-internal enum class ScheduleIssue { CONNECTION, DENIED, UNAVAILABLE, CACHE, DEMO }
+internal enum class ScheduleIssue { CONNECTION, DENIED, UNAVAILABLE, CACHE }
 
 internal data class ScheduleState(
     val snapshot: ScheduleSnapshot? = null,

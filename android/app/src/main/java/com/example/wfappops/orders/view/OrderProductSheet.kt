@@ -6,11 +6,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -54,7 +56,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -69,7 +74,11 @@ import com.example.wfappops.carta.CartaCollection
 import com.example.wfappops.carta.CartaPhoto
 import com.example.wfappops.carta.CartaProduct
 import com.example.wfappops.carta.ProductDetail
+import com.example.wfappops.carta.OrderNoteField
 import com.example.wfappops.orders.model.OrderLine
+import com.example.wfappops.ui.components.EmptyState
+import com.example.wfappops.ui.components.ErrorState
+import com.example.wfappops.ui.components.WfDialog
 import com.example.wfappops.ui.theme.WfRadius
 import com.example.wfappops.ui.theme.WfSize
 import com.example.wfappops.ui.theme.WfSpacing
@@ -103,9 +112,19 @@ internal fun OrderProductSheet(
     var categoryId by rememberSaveable { mutableStateOf<String?>(null) }
     val activeCategory = collections.firstOrNull { it.id == categoryId }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
+    var quickAddId by rememberSaveable { mutableStateOf<String?>(null) }
+    var quickAddNote by rememberSaveable { mutableStateOf("") }
+    val quickAddProduct = remember(collections, quickAddId) {
+        collections.asSequence().flatMap { it.sections.asSequence() }.flatMap { it.products.asSequence() }
+            .firstOrNull { it.id == quickAddId }
+    }
     var handledAdds by rememberSaveable { mutableIntStateOf(addedProducts) }
     LaunchedEffect(addedProducts) {
-        if (addedProducts > handledAdds) selectedId = null
+        if (addedProducts > handledAdds) {
+            selectedId = null
+            quickAddId = null
+            quickAddNote = ""
+        }
         handledAdds = addedProducts
     }
     val selected = remember(collections, selectedId) {
@@ -153,8 +172,10 @@ internal fun OrderProductSheet(
             BottomSheetDefaults.DragHandle(color = if (selected == null) scheme.onPrimary else scheme.onSurfaceVariant)
         }
     ) {
+        val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+        val showCategoryCards = !keyboardVisible && query.isBlank() && collections.isNotEmpty()
         Column(
-            Modifier.fillMaxWidth().fillMaxHeight(0.85f)
+            Modifier.fillMaxWidth().fillMaxHeight(if (selected == null && keyboardVisible) 1f else 0.85f)
         ) {
             if (selected != null) {
                 Column(Modifier.fillMaxSize().padding(horizontal = WfSpacing.lg)) {
@@ -223,7 +244,7 @@ internal fun OrderProductSheet(
                             contentPadding = PaddingValues(WfSpacing.md),
                             verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)
                         ) {
-                            if (collections.isNotEmpty()) item(key = "categories") {
+                            if (activeCategory != null || showCategoryCards) item(key = "categories") {
                                 if (activeCategory != null) {
                                     Column(verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)) {
                                         ActiveProductCategory(activeCategory.name, onClear = { categoryId = null })
@@ -236,15 +257,14 @@ internal fun OrderProductSheet(
                                     })
                                 }
                             }
-                            if (failed) item { Text(stringResource(R.string.cart_error), color = scheme.error) }
+                            if (failed) item { ErrorState(stringResource(R.string.cart_error), onRetry = null) }
                             when {
                                 catalog == null -> item { CircularProgressIndicator() }
                                 catalog.isFailure -> item {
-                                    Text(stringResource(R.string.order_catalog_error))
-                                    TextButton(onClick = onRetry) { Text(stringResource(R.string.auth_retry)) }
+                                    ErrorState(stringResource(R.string.order_catalog_error), onRetry)
                                 }
                                 matching.isEmpty() -> item {
-                                    Text(stringResource(R.string.order_search_empty))
+                                    EmptyState(stringResource(R.string.state_empty_products_title), stringResource(R.string.order_search_empty))
                                     if (visibleCategoryId != null && query.isNotBlank()) {
                                         TextButton(onClick = { categoryId = null }) {
                                             Text(stringResource(R.string.order_search_all))
@@ -270,7 +290,9 @@ internal fun OrderProductSheet(
                                                 onOpen = openDetail,
                                                 onAdd = {
                                                     if (product.modifierGroups.isEmpty()) {
-                                                        onAdd(OrderLine(product.name, 1, product.priceInCents))
+                                                        focus.clearFocus()
+                                                        quickAddNote = ""
+                                                        quickAddId = product.id
                                                     } else {
                                                         openDetail()
                                                     }
@@ -301,6 +323,37 @@ internal fun OrderProductSheet(
                     }
                 }
             }
+        }
+    }
+    if (quickAddProduct != null) {
+        WfDialog(
+            title = quickAddProduct.name,
+            confirmLabel = stringResource(R.string.order_add_product),
+            busy = busy,
+            onConfirm = {
+                onAdd(OrderLine(
+                    product = quickAddProduct.name,
+                    quantity = 1,
+                    unitPriceInCents = quickAddProduct.priceInCents,
+                    note = quickAddNote.trim().ifEmpty { null }
+                ))
+            },
+            onDismiss = {
+                quickAddId = null
+                quickAddNote = ""
+            }
+        ) {
+            if (failed) ErrorState(stringResource(R.string.cart_error), onRetry = null)
+            val noteFocus = remember { FocusRequester() }
+            OrderNoteField(
+                value = quickAddNote,
+                onValueChange = { quickAddNote = it },
+                label = stringResource(R.string.order_optional_note),
+                modifier = Modifier.fillMaxWidth().focusRequester(noteFocus),
+                minLines = 2,
+                enabled = !busy
+            )
+            LaunchedEffect(quickAddProduct.id) { noteFocus.requestFocus() }
         }
     }
 }

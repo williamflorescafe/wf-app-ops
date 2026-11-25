@@ -32,16 +32,27 @@ internal object ColorTokens {
     val Line = Color(0xFFE7E3D9)
     val FieldLine = Color(0xFF858578)
 
+    // Barra inferior compartida visualmente con WF Team.
+    val NavigationPrimary = Color(0xFF3D4A36)
+    val NavigationIndicator = Color(0xFFE4EDDB)
+    val NavigationMuted = Color(0xFF5E6258)
+    val NavigationLine = Color(0xFFE2E1DC)
+
     // Estados de Web Store
     val DangerSoft = Color(0xFFFBE9EE)
     val DangerDeep = Color(0xFFB0234C)
     val OnDanger = Color(0xFFFFFFFF)
     val Logout = Color(0xFFB42318)
     val LogoutSoft = Color(0xFFF9EDEC)
-    val WarningSoft = Color(0xFFFDF3DA)
-    val OnWarning = Color(0xFF7C5A10)
+    // Advertencia compartida con App Team.
+    val WarningSoft = Color(0xFFF9E6D8)
+    val OnWarning = Color(0xFF8A4414)
     val Success = Color(0xFF6B9E6E)
     val ActiveIndicator = Color(0xFF3DDC84)
+    // Bordes operativos de Comandas y Mesas.
+    val OperationsDraft = Color(0xFF9E9E9E)
+    val OperationsPending = Color(0xFFFF9800)
+    val OperationsClosed = Color(0xFFEF2929)
 
     // Estado informativo de App Team, sin equivalente en el tema de Web Store.
     val InfoContainer = Color(0xFFE1E9F1)

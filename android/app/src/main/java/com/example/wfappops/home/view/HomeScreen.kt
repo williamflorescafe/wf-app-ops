@@ -1,6 +1,8 @@
 package com.example.wfappops.home.view
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,36 +20,51 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
-import com.example.wfappops.home.viewmodel.OrderHistoryUiState
+import com.example.wfappops.home.model.HomeOrderFilter
 import com.example.wfappops.orders.model.RegisteredOrder
-import com.example.wfappops.orders.model.TableWorker
-import com.example.wfappops.ui.components.WfButton
-import com.example.wfappops.ui.components.WfButtonStyle
+import com.example.wfappops.ui.components.WfFilterChips
+import com.example.wfappops.ui.components.WfTitleText
 import com.example.wfappops.ui.theme.WfThemeExtras
 import com.example.wfappops.ui.theme.WfSpacing
 
-private const val RecentOrderLimit = 20
+private val nameSpacing = Regex("\\s+")
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 internal fun HomeScreen(
-    worker: TableWorker,
+    employeeName: String,
     canOpenOrder: Boolean,
     onCreateOrder: () -> Unit,
-    history: OrderHistoryUiState,
+    openOrders: Result<List<RegisteredOrder>>?,
+    filter: HomeOrderFilter,
+    onFilter: (HomeOrderFilter) -> Unit,
     onRetry: () -> Unit,
     onOpenOrder: (RegisteredOrder) -> Unit,
-    onSeeMore: () -> Unit
+    ordersAvailable: Boolean = true,
+    notificationOrders: Result<List<RegisteredOrder>>? = openOrders
 ) {
     val scheme = MaterialTheme.colorScheme
+    var showNotifications by rememberSaveable { mutableStateOf(false) }
+    val shortName = remember(employeeName) {
+        employeeName.substringBefore('·').trim().split(nameSpacing, limit = 3).take(2).joinToString(" ")
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(scheme.background),
@@ -55,11 +72,15 @@ internal fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)
     ) {
         item {
-            Text(
-                stringResource(R.string.home_greeting, worker.name),
-                modifier = Modifier.padding(bottom = WfSpacing.sm),
-                style = MaterialTheme.typography.titleLarge
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            WfTitleText(
+                stringResource(R.string.home_greeting, shortName),
+                modifier = Modifier.weight(1f).padding(bottom = WfSpacing.sm)
             )
+            IconButton(onClick = { showNotifications = true }) {
+                Icon(painterResource(R.drawable.ic_notifications), stringResource(R.string.home_notifications), tint = scheme.primary)
+            }
+            }
         }
         item {
             Card(
@@ -97,20 +118,47 @@ internal fun HomeScreen(
             }
         }
         item {
-            Text(
+            WfTitleText(
                 stringResource(R.string.home_my_orders),
-                modifier = Modifier.padding(top = WfSpacing.lg, bottom = WfSpacing.xs),
-                style = MaterialTheme.typography.titleLarge
+                modifier = Modifier.padding(top = WfSpacing.lg, bottom = WfSpacing.xs)
             )
         }
-        orderHistoryItems(history, onRetry, canOpenOrder, onOpenOrder, limit = RecentOrderLimit)
-        if ((history.orders?.size ?: 0) > RecentOrderLimit) item(key = "see-more-orders") {
-            WfButton(
-                text = stringResource(R.string.home_orders_more),
-                onClick = onSeeMore,
-                style = WfButtonStyle.BACK,
-                fullWidth = true
+        item(key = "order-filters") {
+            WfFilterChips(
+                labels = HomeOrderFilter.entries.map { option ->
+                    stringResource(when (option) {
+                        HomeOrderFilter.ALL -> R.string.home_filter_all
+                        HomeOrderFilter.PREPARING -> R.string.order_preparing
+                        HomeOrderFilter.READY -> R.string.order_ready
+                    })
+                },
+                selectedIndex = filter.ordinal,
+                onSelect = { onFilter(HomeOrderFilter.entries[it]) },
+                modifier = Modifier.fillMaxWidth()
             )
+        }
+        if (!ordersAvailable) item {
+            com.example.wfappops.ui.components.EmptyState(
+                stringResource(R.string.home_my_orders), stringResource(R.string.operations_unavailable)
+            )
+        } else orderHistoryItems(
+            openOrders, onRetry, canOpenOrder, onOpenOrder,
+            emptyMessage = when (filter) {
+                HomeOrderFilter.ALL -> R.string.home_open_orders_empty
+                HomeOrderFilter.PREPARING -> R.string.home_preparing_empty
+                HomeOrderFilter.READY -> R.string.home_ready_empty
+            },
+            filter = filter
+        )
+    }
+    if (showNotifications) ModalBottomSheet(onDismissRequest = { showNotifications = false }) {
+        LazyColumn(contentPadding = PaddingValues(WfSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(WfSpacing.md)) {
+            item { WfTitleText(stringResource(R.string.home_notifications)) }
+            orderHistoryItems(notificationOrders, onRetry, canOpenOrder, {
+                showNotifications = false
+                onOpenOrder(it)
+            }, emptyMessage = R.string.home_notifications_empty, filter = HomeOrderFilter.READY)
         }
     }
 }
