@@ -23,7 +23,15 @@ internal data class OrderLine(
     val canceledBy: TableWorker? = null,
     val preparationStartedAt: Instant? = null,
     val readyAt: Instant? = null,
-    val deliveredAt: Instant? = null
+    val deliveredAt: Instant? = null,
+    val productId: String? = null,
+    val variantId: String? = null,
+    val modifierSelections: List<OrderModifierSelection> = emptyList(),
+    val currencyCode: String = "PEN",
+    val locationId: String? = null,
+    val menuId: String? = null,
+    val remoteUnitIds: List<String> = emptyList(),
+    val remoteLineNumber: Int? = null
 ) {
     val totalInCents get() = quantity * unitPriceInCents
     val isCanceled get() = kitchenStatus == KitchenItemStatus.CANCELED
@@ -33,6 +41,8 @@ internal data class OrderLine(
 
     fun asSent() = if (kitchenStatus == null) copy(kitchenStatus = KitchenItemStatus.SENT) else this
 }
+
+internal data class OrderModifierSelection(val groupId: String, val optionId: String, val quantity: Int)
 
 internal enum class KitchenItemStatus(val wireValue: String) {
     SENT("sent"), IN_PREPARATION("in_preparation"), READY("ready"), DELIVERED("delivered"), CANCELED("canceled")
@@ -46,7 +56,11 @@ internal data class OrderDispatch(
     val legacyNumber: Int? = null,
     val canceledAt: Instant? = null,
     val canceledBy: TableWorker? = null,
-    val receivedAt: Instant? = null
+    val receivedAt: Instant? = null,
+    val remoteId: String? = null,
+    val sequence: Int? = null,
+    val clientRoundId: String? = null,
+    val note: String? = null
 ) {
     val activeLines get() = if (canceledAt != null) emptyList() else lines.filterNot { it.isCanceled }
     val isCanceled get() = canceledAt != null || (lines.isNotEmpty() && lines.all { it.isCanceled })
@@ -82,22 +96,37 @@ internal data class TableVisit(
     val tableName: String? = null,
     val locationName: String? = null,
     val tableCode: String? = null,
-    val numberReserved: Boolean = false
+    val numberReserved: Boolean = false,
+    val apiBacked: Boolean = false,
+    val remoteOrderId: String? = null,
+    val remoteVersion: Int? = null,
+    val remoteStatus: String? = null,
+    val remoteTotalMinor: Long? = null,
+    val remoteUnitsCount: Long? = null,
+    val remoteDetailLoaded: Boolean = false,
+    val businessDate: String? = null,
+    val pendingSend: String? = null,
+    val remoteCanceledAt: Instant? = null,
+    val remoteCancelReason: String? = null,
+    val localKitchenStatuses: Map<String, LocalKitchenStatus> = emptyMap(),
+    val localDraftNumber: Int? = null
 ) {
     val isDiscardedDraft get() = closed && orderNumber != null && draft.isEmpty() && dispatches.isEmpty()
-    val hasRecordedProducts get() = draft.any { it.quantity > 0 } || dispatches.any { dispatch -> dispatch.lines.any { it.quantity > 0 } }
-    val totalInCents get() = dispatches.sumOf { dispatch ->
+    val hasRecordedProducts get() = (remoteUnitsCount ?: 0) > 0 || draft.any { it.quantity > 0 } || dispatches.any { dispatch -> dispatch.lines.any { it.quantity > 0 } }
+    val totalInCents get() = remoteTotalMinor ?: dispatches.sumOf { dispatch ->
         dispatch.activeLines.sumOf { it.totalInCents }
     }
     val canSendToCashier get() = !closed && orderNumber != null && dispatches.isNotEmpty() && draft.isEmpty() &&
         dispatches.all { dispatch -> dispatch.activeLines.all { it.dispatchStatus == KitchenItemStatus.DELIVERED } }
 }
 
-internal data class TableService(val visits: List<TableVisit> = emptyList()) {
-    fun createOrder(worker: TableWorker, at: Instant = Instant.now()): TableService {
+internal data class TableService(val visits: List<TableVisit> = emptyList(), val nextLocalDraftNumber: Int = 1) {
+    fun createOrder(worker: TableWorker, at: Instant = Instant.now(), apiBacked: Boolean = false): TableService {
         val key = Math.addExact(visits.maxOfOrNull { it.table } ?: 0, 1)
         val opened = open(key, worker, at)
-        return opened.reserveOrderNumber(opened.visits.last().id, at)
+        return if (apiBacked) opened.copy(visits = opened.visits.map {
+            if (it.id == opened.visits.last().id) it.copy(apiBacked = true) else it
+        }) else opened.reserveOrderNumber(opened.visits.last().id, at)
     }
 
     fun reserveOrderNumber(visitId: String, at: Instant = Instant.now()) = changeVisit(visitId) { visit ->
@@ -108,11 +137,18 @@ internal data class TableService(val visits: List<TableVisit> = emptyList()) {
 
     fun assignApiTable(visitId: String, location: com.example.wfappops.auth.model.TeamLocation,
                        table: com.example.wfappops.tables.AvailableTable): TableService {
+        val target = checkNotNull(visits.firstOrNull { it.id == visitId && !it.closed })
+        require(!target.hasRecordedProducts || target.locationId == null || target.locationId == location.id)
         val others = visits.filter { !it.closed && it.id != visitId && it.locationId == location.id && it.remoteTableId == table.id }
         check(others.none { it.hasRecordedProducts })
         val available = copy(visits = visits.map { if (it in others) it.copy(closed = true) else it })
         return available.changeVisit(visitId) { visit -> visit.copy(locationId = location.id, locationName = location.name,
             remoteTableId = table.id, tableName = table.name, tableCode = table.code) }
+    }
+
+    fun bindMenuLocation(visitId: String, location: com.example.wfappops.auth.model.TeamLocation) = changeVisit(visitId) { visit ->
+        require(!visit.hasRecordedProducts || visit.locationId == null || visit.locationId == location.id)
+        visit.copy(locationId = location.id, locationName = location.name)
     }
     fun openApiTable(
         location: com.example.wfappops.auth.model.TeamLocation,
@@ -132,7 +168,7 @@ internal data class TableService(val visits: List<TableVisit> = emptyList()) {
         return opened.copy(visits = opened.visits.map { visit ->
             if (visit.table == internalNumber && !visit.closed) visit.copy(
                 remoteTableId = table.id, locationId = location.id, tableName = table.name,
-                locationName = location.name, tableCode = table.code
+                locationName = location.name, tableCode = table.code, apiBacked = true
             ) else visit
         })
     }
@@ -153,14 +189,15 @@ internal data class TableService(val visits: List<TableVisit> = emptyList()) {
     fun ordersBy(employeeId: String) = registeredOrders().ordersBy(employeeId)
 
     fun registeredOrders(): List<RegisteredOrder> = visits.mapNotNull { visit ->
-        val number = visit.orderNumber ?: return@mapNotNull null
+        if (visit.remoteStatus == "unlisted") return@mapNotNull null
+        val number = visit.orderNumber ?: if (visit.apiBacked && visit.draft.isNotEmpty()) 0 else return@mapNotNull null
         val startedAt = visit.orderStartedAt ?: visit.dispatches.minOfOrNull { it.sentAt } ?: visit.openedAt ?: return@mapNotNull null
         val lastDispatchActivity = visit.dispatches.maxOfOrNull { it.lastActivityAt } ?: startedAt
         val lastActivity = visit.cashierHandoff?.sentAt?.let { maxOf(it, lastDispatchActivity) } ?: lastDispatchActivity
         val activeLines = visit.dispatches.flatMap { it.activeLines }
         val ready = activeLines.sumOf { if (it.kitchenStatus == KitchenItemStatus.READY) it.quantity.toLong() else 0L }
         val status = when {
-            visit.isDiscardedDraft -> RegisteredOrderStatus.CANCELED
+            visit.remoteStatus == "canceled" || visit.isDiscardedDraft -> RegisteredOrderStatus.CANCELED
             visit.closed -> RegisteredOrderStatus.CLOSED
             ready > 0 -> RegisteredOrderStatus.READY
             activeLines.any { it.kitchenStatus == KitchenItemStatus.IN_PREPARATION } -> RegisteredOrderStatus.PREPARING
@@ -182,6 +219,8 @@ internal data class TableService(val visits: List<TableVisit> = emptyList()) {
             tableName = visit.tableName,
             locationName = visit.locationName,
             tableCode = visit.tableCode,
+            localDraftNumber = visit.localDraftNumber,
+            hasAssignedTable = !visit.apiBacked || visit.remoteTableId != null,
             products = visit.dispatches.flatMap { dispatch -> dispatch.lines.map { line ->
                 line to if (dispatch.canceledAt != null) KitchenItemStatus.CANCELED else line.dispatchStatus
             } }.filter { it.first.quantity > 0 }.groupBy { it.first.product to it.second }.map { (key, lines) ->
@@ -191,8 +230,10 @@ internal data class TableService(val visits: List<TableVisit> = emptyList()) {
                 DraftProductSummary(name, lines.sumOf { it.quantity.toLong() })
             },
             hasDraftProducts = visit.draft.isNotEmpty(),
-            hasKitchenDispatches = visit.dispatches.isNotEmpty(),
-            cashierHandoffAt = visit.cashierHandoff?.sentAt
+            hasKitchenDispatches = visit.remoteOrderId != null || visit.dispatches.isNotEmpty(),
+            cashierHandoffAt = visit.cashierHandoff?.sentAt,
+            localDraft = visit.apiBacked && visit.remoteOrderId == null,
+            summaryUnitsCount = visit.remoteUnitsCount.takeUnless { visit.remoteDetailLoaded }
         )
     }.sortedWith(compareByDescending<RegisteredOrder> { it.lastActivityAt }.thenByDescending { it.number })
 
@@ -224,7 +265,11 @@ internal data class TableService(val visits: List<TableVisit> = emptyList()) {
         }
     }
 
-    private fun TableVisit.startDraft(at: Instant, worker: TableWorker?) = if (orderNumber != null) copy(numberReserved = false) else copy(
+    private fun TableVisit.startDraft(at: Instant, worker: TableWorker?) = if (apiBacked) copy(
+        orderStartedAt = orderStartedAt ?: at,
+        openedBy = if (remoteOrderId == null && dispatches.isEmpty() && draft.isEmpty()) worker ?: openedBy else openedBy,
+        responsible = if (remoteOrderId == null && dispatches.isEmpty() && draft.isEmpty()) worker ?: responsible else responsible
+    ) else if (orderNumber != null) copy(numberReserved = false) else copy(
         orderNumber = nextTicketNumber(), orderStartedAt = orderStartedAt ?: at,
         openedBy = worker ?: openedBy, responsible = responsible ?: worker ?: openedBy
     )
@@ -232,7 +277,7 @@ internal data class TableService(val visits: List<TableVisit> = emptyList()) {
     /** Migra borradores ya guardados sin crear otra atención ni inventar una hora anterior. */
     fun ensureDraftOrders(): TableService {
         var service = this
-        visits.filter { it.draft.isNotEmpty() && it.orderNumber == null }.forEach { pending ->
+        visits.filter { !it.apiBacked && it.draft.isNotEmpty() && it.orderNumber == null }.forEach { pending ->
             val number = service.nextTicketNumber()
             service = service.copy(visits = service.visits.map { visit ->
                 if (visit.id != pending.id) visit else visit.copy(
@@ -247,12 +292,13 @@ internal data class TableService(val visits: List<TableVisit> = emptyList()) {
     fun adjustDraft(visitId: String, line: OrderLine, delta: Int) = changeVisit(visitId) { visit ->
         val draft = visit.draft.adjustCartLine(line, delta)
         visit.copy(draft = draft,
-            closed = visit.orderNumber != null && draft.isEmpty() && visit.dispatches.isEmpty())
+            orderStartedAt = if (visit.apiBacked && visit.remoteOrderId == null && visit.dispatches.isEmpty() && draft.isEmpty()) null else visit.orderStartedAt,
+            closed = !visit.apiBacked && visit.orderNumber != null && draft.isEmpty() && visit.dispatches.isEmpty())
     }
 
     /** Repara atenciones del flujo anterior; una mesa solo seleccionada aún no tiene número. */
     fun closeEmptyDraftOrders() = copy(visits = visits.map { visit ->
-        if (!visit.closed && visit.orderNumber != null && !visit.hasRecordedProducts && !visit.numberReserved) {
+        if (!visit.apiBacked && !visit.closed && visit.orderNumber != null && !visit.hasRecordedProducts && !visit.numberReserved) {
             visit.copy(closed = true)
         } else visit
     })
@@ -398,11 +444,15 @@ internal data class RegisteredOrder(
     val hasDraftProducts: Boolean = false,
     val hasKitchenDispatches: Boolean = products.isNotEmpty(),
     val cashierHandoffAt: Instant? = null,
-    val draftProducts: List<DraftProductSummary> = emptyList()
+    val draftProducts: List<DraftProductSummary> = emptyList(),
+    val localDraft: Boolean = false,
+    val summaryUnitsCount: Long? = null,
+    val localDraftNumber: Int? = null,
+    val hasAssignedTable: Boolean = true
 ) {
-    val hasDisplayableProducts get() = products.any { it.quantity > 0 } || draftProducts.any { it.quantity > 0 }
-    val isFullyServed get() = !hasDraftProducts && draftProducts.none { it.quantity > 0 } &&
-        products.any { it.quantity > 0 && it.status != KitchenItemStatus.CANCELED } &&
+    val hasDisplayableProducts get() = (summaryUnitsCount ?: 0) > 0 || products.any { it.quantity > 0 } || draftProducts.any { it.quantity > 0 }
+    // Resume los enviados: un borrador nuevo no cambia el color de lo ya servido.
+    val isFullyServed get() = products.any { it.quantity > 0 && it.status != KitchenItemStatus.CANCELED } &&
         products.filter { it.quantity > 0 && it.status != KitchenItemStatus.CANCELED }
             .all { it.status == KitchenItemStatus.DELIVERED }
     val isFullyReady get() = status == RegisteredOrderStatus.READY && !hasDraftProducts && draftProducts.isEmpty() && products.isNotEmpty() &&
@@ -441,7 +491,9 @@ internal fun List<OrderLine>.adjustCartLine(line: OrderLine, delta: Int): List<O
 
 private fun OrderLine.matchesCartLine(other: OrderLine) =
     product == other.product && options == other.options && unitPriceInCents == other.unitPriceInCents &&
-        note == other.note
+        note == other.note && productId == other.productId && variantId == other.variantId &&
+        modifierSelections == other.modifierSelections && currencyCode == other.currencyCode &&
+        locationId == other.locationId && menuId == other.menuId
 
 internal fun List<OrderLine>.editNote(line: OrderLine, note: String?): List<OrderLine> {
     val current = firstOrNull { it.matchesCartLine(line) } ?: return this

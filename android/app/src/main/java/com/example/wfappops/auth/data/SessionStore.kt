@@ -41,7 +41,9 @@ internal class SessionStore(context: Context) {
         return id
     }
 
-    fun read(): StoredSession? {
+    fun read(): StoredSession? = synchronized(sessionLock) { readSession() }
+
+    private fun readSession(): StoredSession? {
         val value = readEncrypted(file) ?: return null
         // Las versiones previas guardaban únicamente el token.
         if (!value.startsWith('{')) return StoredSession(value)
@@ -57,7 +59,7 @@ internal class SessionStore(context: Context) {
         }
     }
 
-    fun save(session: StoredSession) {
+    fun save(session: StoredSession) = synchronized(sessionLock) {
         val json = JSONObject()
             .put("token", session.token)
             .put("business_id", session.businessId)
@@ -65,7 +67,14 @@ internal class SessionStore(context: Context) {
         writeEncrypted(file, json.toString())
     }
 
-    fun clear() = file.delete()
+    fun clear() = synchronized(sessionLock) { file.delete() }
+
+    /** La revalidación no puede restaurar una sesión cerrada o reemplazada durante la petición. */
+    fun saveIfCurrent(expected: StoredSession, updated: StoredSession): Boolean = synchronized(sessionLock) {
+        if (!sameOpsAccess(expected, readSession())) return@synchronized false
+        save(updated)
+        true
+    }
 
     private fun readEncrypted(target: AtomicFile): String? = try {
         val bytes = target.readFully()
@@ -123,6 +132,7 @@ internal class SessionStore(context: Context) {
     }
 
     private companion object {
+        val sessionLock = Any()
         const val KEYSTORE = "AndroidKeyStore"
         const val KEY_ALIAS = "ops_team_auth_session"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
@@ -135,6 +145,10 @@ internal data class StoredSession(
     val businessId: String? = null,
     val verifiedBusiness: VerifiedBusiness? = null
 )
+
+internal fun sameOpsAccess(expected: StoredSession, current: StoredSession?): Boolean =
+    current != null && current.token == expected.token && current.businessId == expected.businessId &&
+        current.verifiedBusiness?.context == expected.verifiedBusiness?.context
 
 private fun VerifiedBusiness.toJson() = JSONObject()
     .put("context_audience", "ops")

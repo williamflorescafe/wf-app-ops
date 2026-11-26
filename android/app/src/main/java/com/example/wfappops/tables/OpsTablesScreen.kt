@@ -39,6 +39,8 @@ internal fun OpsTablesScreen(
     state: AccountUiState,
     attentions: Map<TableReference, TableAttention> = emptyMap(),
     onSelectTable: ((String, String, TableAttention?) -> Unit)? = null,
+    occupancyReady: Boolean = true,
+    occupancyLoading: Boolean = false,
     onLoad: (String, Boolean) -> Unit
 ) {
     val context = state.businessContext ?: return
@@ -118,6 +120,10 @@ internal fun OpsTablesScreen(
                         }
                         ErrorState(apiError?.serverMessage ?: stringResource(fallback),
                             if (apiError?.status in listOf(403, 404, 409)) null else { { onLoad(selected.id, true) } })
+                    }
+                    !occupancyReady -> item(span = { GridItemSpan(maxLineSpan) }) {
+                        if (occupancyLoading) androidx.compose.material3.CircularProgressIndicator()
+                        else ErrorState(stringResource(R.string.orders_occupancy_error), { onLoad(selected.id, true) })
                     }
                     areas.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
                         EmptyState(stringResource(R.string.tables_title),

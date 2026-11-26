@@ -2,6 +2,7 @@ package com.example.wfappops
 
 import android.graphics.Color
 import android.os.Bundle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
@@ -102,12 +103,22 @@ private fun OpsRoot(state: AccountUiState, account: AccountViewModel) {
             }).get("orders-${business.businessId}-${worker.id}", OrderHistoryViewModel::class.java)
         }
         val orders by history.uiState.collectAsStateWithLifecycle()
-        val scope = OrderHistoryScope(business.businessId, worker.id)
-        LaunchedEffect(scope) { history.load(scope) }
+        LaunchedEffect(orders.result?.exceptionOrNull()) {
+            if ((orders.result?.exceptionOrNull() as? com.example.wfappops.auth.data.AuthApiException)?.status == 401) account.expireSession()
+        }
+        val locationId = state.selectedLocationId ?: business.locations.firstOrNull()?.id
+        val scope = OrderHistoryScope(business.businessId, worker.id, locationId)
+        val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+        LaunchedEffect(scope, owner) {
+            owner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                while (true) { history.load(scope, true); kotlinx.coroutines.delay(30_000) }
+            }
+        }
         DisposableEffect(history) { onDispose { history.clear() } }
         var filter by rememberSaveable { mutableStateOf(HomeOrderFilter.ALL) }
         fun openOrder(table: Int? = null, visitId: String? = null) {
-            context.startActivity(CreateOrderActivity.intent(context, business.businessId, worker, table, visitId))
+            context.startActivity(CreateOrderActivity.intent(context, business.businessId, worker, table, visitId,
+                locationId = locationId))
         }
         var tab by rememberSaveable { mutableStateOf(OpsTab.HOME) }
         BackHandler(tab != OpsTab.HOME) { tab = OpsTab.HOME }
@@ -127,7 +138,7 @@ private fun OpsRoot(state: AccountUiState, account: AccountViewModel) {
                             filter = filter, onFilter = { filter = it },
                             onRetry = { history.load(scope, true) },
                             onOpenOrder = { openOrder(it.table, it.visitId) },
-                            notificationOrders = orders.homeOrders(HomeOrderFilter.READY)
+                            onNotifications = { context.startActivity(com.example.wfappops.notifications.NotificationsActivity.intent(context, locationId)) }
                         )
                         OpsTab.ORDERS -> OrderHistoryScreen(
                             orders = orders.orders(true), day = orders.day,
@@ -135,12 +146,15 @@ private fun OpsRoot(state: AccountUiState, account: AccountViewModel) {
                             canOpenOrder = !state.loading, onOpenOrder = { openOrder(it.table, it.visitId) }
                         )
                         OpsTab.TABLES -> OpsTablesScreen(state, attentions = orders.attentions,
+                            occupancyReady = orders.scope == scope && orders.result?.isSuccess == true,
+                            occupancyLoading = orders.scope != scope || orders.result == null,
                             onSelectTable = { locationId, tableId, attention ->
                                 if (attention is com.example.wfappops.tables.TableAttention.Occupied) {
                                     openOrder(attention.internalTable, attention.visitId)
                                 } else context.startActivity(CreateOrderActivity.intent(context, business.businessId, worker,
                                     null, null, locationId, tableId))
-                            }, onLoad = account::loadTables)
+                            }, onLoad = { selected, refresh -> account.loadTables(selected, refresh)
+                                if (refresh) history.load(scope.copy(locationId = selected), true) })
                         OpsTab.PROFILE -> {
                             LaunchedEffect(business.businessId, business.employeeId) { account.loadProfile() }
                             AccountScreen(state, business, account::loadProfile, account::logout)

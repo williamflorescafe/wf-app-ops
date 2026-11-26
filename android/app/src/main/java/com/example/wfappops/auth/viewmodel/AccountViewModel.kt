@@ -114,6 +114,10 @@ internal class AccountViewModel(
         }
     }
 
+    fun expireSession() {
+        viewModelScope.launch { clearSession(); state.update { it.copy(loading = false) } }
+    }
+
     fun logout() {
         val active = session ?: return
         runWork {

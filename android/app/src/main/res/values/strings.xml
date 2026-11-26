@@ -1,4 +1,11 @@
 <resources>
+    <string name="menu_variant">Presentación</string>
+    <string name="menu_selection_changed">El producto cambió de precio o disponibilidad. Revisa tu selección antes de agregarlo.</string>
+    <string name="menu_unavailable">No disponible</string>
+    <string name="menu_empty">Este local no tiene una carta de Salón con productos para mostrar.</string>
+    <string name="menu_add_option">Agregar %1$s</string>
+    <string name="menu_remove_option">Quitar %1$s</string>
+    <string name="order_products_cta">Productos</string>
     <string name="order_attendant_linked">El encargado está vinculado al usuario que inició sesión.</string>
     <string name="order_header_title">Comanda</string>
     <string name="order_header_number">Comanda %1$s</string>
@@ -7,8 +14,21 @@
     <string name="order_select_table">Seleccionar</string>
     <string name="order_edit_details">Editar datos de la comanda</string>
     <string name="order_attendant_label">Encargado</string>
+    <string name="order_table_label">Mesa</string>
+    <string name="order_change_assignment">Cambiar</string>
     <string name="home_notifications">Notificaciones</string>
-    <string name="home_notifications_empty">No tienes productos listos pendientes de servir.</string>
+    <string name="home_notifications_empty">Aquí aparecerán los avisos de productos listos y los recordatorios para servir.</string>
+    <string name="notification_history_error">No pudimos leer las notificaciones guardadas.</string>
+    <string name="notification_ready_title">Listo para recoger</string>
+    <string name="notification_ready_body">Ya puedes recoger %1$s.</string>
+    <string name="notification_serve_reminder_title">¿Ya lo serviste?</string>
+    <string name="notification_serve_reminder_body">%1$s sigue pendiente. Si ya lo serviste, márcalo como servido para dejar de recibir avisos.</string>
+    <string name="notification_table_label">Mesa %1$s</string>
+    <string name="notification_order_label">Comanda %1$s</string>
+    <string name="notification_seconds_ago">Hace %1$d s</string>
+    <string name="notification_minutes_ago">Hace %1$d min</string>
+    <string name="notification_hours_ago">Hace %1$d h</string>
+    <string name="notification_days_ago">Hace %1$d d</string>
     <plurals name="order_products_ready_count">
         <item quantity="one">%1$d producto listo</item>
         <item quantity="other">%1$d productos listos</item>
@@ -135,6 +155,12 @@
     <string name="tables_ticket">Comanda #%1$06d</string>
     <string name="order_table_number">Mesa %1$02d</string>
     <string name="order_draft_status">Borrador</string>
+    <string name="order_local_draft_number">Borrador #%1$d</string>
+    <string name="order_table_unassigned">sin asignar</string>
+    <plurals name="order_summary_products_count">
+        <item quantity="one">%1$d producto</item>
+        <item quantity="other">%1$d productos</item>
+    </plurals>
     <string name="order_sent_status">Enviada</string>
     <string name="order_dispatch">#%1$d</string>
     <string name="order_product_column">Producto</string>
@@ -171,6 +197,16 @@
     <string name="order_draft_discarded">Borrador descartado. La mesa está libre.</string>
     <string name="order_comment_title">Comentario de la comanda</string>
     <string name="order_comment_label">Comentario (opcional)</string>
+    <string name="order_comment_preview_label">Comentario</string>
+    <string name="order_add_round_note">Agregar nota</string>
+    <string name="order_no_round_note">Sin nota</string>
+    <string name="order_dispatch_comment_title">Comentario del envío #%1$d</string>
+    <string name="order_view_dispatch_comment">Ver comentario del envío #%1$d</string>
+    <string name="order_dispatch_comment_empty">Este envío no tiene comentario.</string>
+    <string name="order_draft_comment_title">Comentario del próximo envío</string>
+    <string name="order_edit_draft_comment">Agregar o editar comentario del próximo envío</string>
+    <string name="order_comment_close">Cerrar</string>
+    <string name="order_clear_selection">Quitar selección</string>
     <string name="order_cashier_title">Cerrar y enviar a caja</string>
     <string name="order_cashier_send">Enviar a caja</string>
     <string name="order_cashier_hint">Se cerrará la atención y se registrará para caja un total de %1$s en este dispositivo.</string>
@@ -243,6 +279,7 @@
     <string name="kitchen_dispatch_number">Envío %1$s</string>
     <string name="kitchen_quantity">%1$d × %2$s</string>
     <string name="home_create_order">Crear comanda</string>
+    <string name="home_create_order_tagline">Una buena atención empieza aquí.</string>
     <string name="home_greeting">Hola, %1$s</string>
     <string name="orders_last_two_days">Últimos dos días</string>
     <string name="orders_yesterday">Ayer</string>
@@ -312,4 +349,27 @@
     <string name="schedule_unplanned">Sin programación</string>
     <string name="schedule_rest">Descanso</string>
     <string name="schedule_minutes">Refrigerio %1$d min · Programado %2$d min</string>
+    <string name="order_send_selected">Enviar seleccionados (%1$d)</string>
+    <string name="order_send_quantity">%1$d de %2$d</string>
+    <string name="order_selection_hint">Selecciona los productos y cantidades para cocina. El resto seguirá en borrador.</string>
+    <plurals name="order_draft_units">
+        <item quantity="one">%1$d unidad</item>
+        <item quantity="other">%1$d unidades</item>
+    </plurals>
+    <string name="order_cancel_action">Anular</string>
+    <string name="order_cancel_title">Anular comanda</string>
+    <string name="order_cancel_hint">Se anularán todos los productos enviados y se liberará la mesa. El historial se conserva. Si hay productos en borrador, seguirán guardados en este dispositivo.</string>
+    <string name="order_cancel_reason">Motivo de anulación</string>
+    <string name="order_pending_retry">El envío está pendiente de confirmación. Reintenta con el botón de enviar; se conservará la misma captura para evitar duplicados.</string>
+    <string name="order_retained_draft">La atención ya no está abierta. Tus productos en borrador siguen guardados en este dispositivo.</string>
+    <string name="order_recover_draft">Continuar borrador en nueva comanda</string>
+    <string name="order_summary_units">%1$d productos</string>
+    <string name="orders_occupancy_error">No pudimos confirmar la ocupación de las mesas. Desliza hacia abajo para actualizar.</string>
+    <string name="menu_access_title">Sin acceso a Carta</string>
+    <string name="menu_load_error_title">No pudimos cargar Carta</string>
+    <string name="menu_permission_missing">Tu cuenta no tiene habilitada la consulta de Carta en este negocio. Solicita al administrador que revise tu acceso.</string>
+    <string name="menu_location_denied">Tu acceso actual no incluye la Carta del local seleccionado. Actualiza tu acceso o selecciona otro local autorizado.</string>
+    <string name="menu_access_denied">No tienes acceso a la Carta de este local. Actualiza tu acceso; si continúa, solicita al administrador que revise tus permisos.</string>
+    <string name="menu_refresh_access">Actualizar acceso</string>
+    <string name="menu_temporarily_unavailable">La Carta de este local no está disponible en este momento.</string>
 </resources>

@@ -1,11 +1,7 @@
 package com.example.wfappops.home.view
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,40 +10,30 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.wfappops.R
 import com.example.wfappops.home.model.HomeOrderFilter
 import com.example.wfappops.orders.model.RegisteredOrder
 import com.example.wfappops.ui.components.WfFilterChips
 import com.example.wfappops.ui.components.WfTitleText
-import com.example.wfappops.ui.theme.WfThemeExtras
 import com.example.wfappops.ui.theme.WfSpacing
 
 private val nameSpacing = Regex("\\s+")
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 internal fun HomeScreen(
     employeeName: String,
     canOpenOrder: Boolean,
@@ -58,69 +44,39 @@ internal fun HomeScreen(
     onRetry: () -> Unit,
     onOpenOrder: (RegisteredOrder) -> Unit,
     ordersAvailable: Boolean = true,
-    notificationOrders: Result<List<RegisteredOrder>>? = openOrders
+    onNotifications: () -> Unit = {}
 ) {
     val scheme = MaterialTheme.colorScheme
-    var showNotifications by rememberSaveable { mutableStateOf(false) }
-    val shortName = remember(employeeName) {
-        employeeName.substringBefore('·').trim().split(nameSpacing, limit = 3).take(2).joinToString(" ")
+    val displayName = remember(employeeName) {
+        employeeName.substringBefore('·').trim().replace(nameSpacing, " ")
     }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(scheme.background),
-        contentPadding = PaddingValues(horizontal = WfSpacing.lg, vertical = WfSpacing.xl),
+        contentPadding = PaddingValues(start = WfSpacing.lg, top = WfSpacing.xs,
+            end = WfSpacing.lg, bottom = WfSpacing.lg),
         verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            WfTitleText(
-                stringResource(R.string.home_greeting, shortName),
-                modifier = Modifier.weight(1f).padding(bottom = WfSpacing.sm)
-            )
-            IconButton(onClick = { showNotifications = true }) {
-                Icon(painterResource(R.drawable.ic_notifications), stringResource(R.string.home_notifications), tint = scheme.primary)
-            }
-            }
-        }
-        item {
-            Card(
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainer),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    Modifier.fillMaxWidth().padding(WfSpacing.lg),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(WfSpacing.md)
-                ) {
-                    Box(
-                        Modifier.size(56.dp).background(WfThemeExtras.warmSurface, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.ic_order_bag), contentDescription = null,
-                            modifier = Modifier.size(26.dp), tint = scheme.primary
-                        )
-                    }
-                    Button(
-                        onClick = onCreateOrder,
-                        enabled = canOpenOrder,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = scheme.primary, contentColor = WfThemeExtras.onAdvanceAction,
-                            disabledContainerColor = scheme.outlineVariant,
-                            disabledContentColor = scheme.onSurfaceVariant
-                        )
-                    ) {
-                        Text(stringResource(R.string.home_create_order))
-                    }
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(WfSpacing.xs)) {
+                Text(stringResource(R.string.home_greeting, displayName), modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = 20.sp, stepSize = 0.5.sp),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                IconButton(onClick = onNotifications, modifier = Modifier.size(48.dp)) {
+                    Icon(painterResource(R.drawable.ic_notifications), stringResource(R.string.home_notifications),
+                        modifier = Modifier.size(24.dp), tint = scheme.primary)
                 }
             }
         }
         item {
+            CreateOrderCard(enabled = canOpenOrder, onClick = onCreateOrder)
+        }
+        item {
             WfTitleText(
                 stringResource(R.string.home_my_orders),
-                modifier = Modifier.padding(top = WfSpacing.lg, bottom = WfSpacing.xs)
+                modifier = Modifier.padding(top = WfSpacing.sm)
             )
         }
         item(key = "order-filters") {
@@ -150,15 +106,5 @@ internal fun HomeScreen(
             },
             filter = filter
         )
-    }
-    if (showNotifications) ModalBottomSheet(onDismissRequest = { showNotifications = false }) {
-        LazyColumn(contentPadding = PaddingValues(WfSpacing.lg),
-            verticalArrangement = Arrangement.spacedBy(WfSpacing.md)) {
-            item { WfTitleText(stringResource(R.string.home_notifications)) }
-            orderHistoryItems(notificationOrders, onRetry, canOpenOrder, {
-                showNotifications = false
-                onOpenOrder(it)
-            }, emptyMessage = R.string.home_notifications_empty, filter = HomeOrderFilter.READY)
-        }
     }
 }

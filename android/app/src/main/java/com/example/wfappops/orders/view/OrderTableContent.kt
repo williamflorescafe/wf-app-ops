@@ -14,6 +14,11 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -25,9 +30,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.TextAutoSize
-import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -35,6 +39,8 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -53,6 +59,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -60,13 +67,11 @@ import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.example.wfappops.R
 import com.example.wfappops.carta.formatCartaPrice
 import com.example.wfappops.orders.model.KitchenItemStatus
@@ -76,6 +81,8 @@ import com.example.wfappops.orders.model.TableVisit
 import com.example.wfappops.tables.tableActivityTime
 import com.example.wfappops.ui.components.WfButton
 import com.example.wfappops.ui.components.WfButtonStyle
+import com.example.wfappops.ui.components.WfDialog
+import com.example.wfappops.designsystem.icons.WfIcons
 import com.example.wfappops.ui.theme.WfThemeExtras
 import com.example.wfappops.ui.theme.WfSize
 import com.example.wfappops.ui.theme.WfSpacing
@@ -88,12 +95,13 @@ internal fun OrderTableHeader(
     visit: TableVisit?,
     enabled: Boolean,
     onBack: () -> Unit,
-    onComment: (() -> Unit)?,
     cashierBlocked: Boolean,
     onCashier: (() -> Unit)?,
     workerName: String = "",
     onSelectTable: (() -> Unit)? = null,
-    onEditDetails: (() -> Unit)? = null
+    onChangeResponsible: (() -> Unit)? = null,
+    onCancelOrder: (() -> Unit)? = null,
+    cashierEnabled: Boolean = true
 ) {
     val scheme = MaterialTheme.colorScheme
     val orderNumber = visit?.orderNumber
@@ -121,50 +129,95 @@ internal fun OrderTableHeader(
             ) {
                 Text(
                     if (orderNumber != null) stringResource(R.string.order_header_number,
-                        stringResource(R.string.order_number, orderNumber)) else stringResource(R.string.order_header_title),
+                        stringResource(R.string.order_number, orderNumber)) else visit?.localDraftNumber?.let {
+                            stringResource(R.string.order_local_draft_number, it) } ?: stringResource(R.string.order_draft_status),
                     modifier = Modifier.weight(1f, fill = false),
                     style = MaterialTheme.typography.titleLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (onComment != null) {
-                IconButton(onClick = onComment, enabled = enabled) {
-                    Icon(painterResource(R.drawable.ic_order_comment), stringResource(R.string.order_comment_title))
-                }
+            if (onCancelOrder != null) androidx.compose.material3.TextButton(onClick = onCancelOrder, enabled = enabled) {
+                Text(stringResource(R.string.order_cancel_action), color = scheme.onPrimary)
             }
             if (onCashier != null) {
                 val blockedLabel = stringResource(R.string.order_cashier_pending)
                 IconButton(
                     onClick = onCashier,
-                    enabled = enabled,
+                    enabled = enabled && cashierEnabled,
                     modifier = Modifier.semantics { if (cashierBlocked) stateDescription = blockedLabel }
                 ) {
                     Icon(
-                        painterResource(R.drawable.ic_order_cashier), stringResource(R.string.order_cashier_title),
+                        painterResource(WfIcons.Cashier), stringResource(R.string.order_cashier_title),
                         modifier = Modifier.alpha(if (cashierBlocked) 0.55f else 1f)
                     )
                 }
             }
         }
     }
-    Surface(color = scheme.surfaceContainerLowest) {
-        Row(Modifier.fillMaxWidth().padding(start = WfSpacing.lg, end = WfSpacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(WfSpacing.sm)) {
-            Text(stringResource(R.string.order_attendant_value, visit?.responsible?.name ?: workerName),
-                modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2, overflow = TextOverflow.Ellipsis)
-            androidx.compose.material3.TextButton(onClick = { onSelectTable?.invoke() },
-                enabled = enabled && onSelectTable != null) {
-                Text(stringResource(R.string.order_table_value, visit?.tableName
-                    ?: stringResource(R.string.order_select_table)), style = MaterialTheme.typography.bodyMedium)
-            }
-            if (onEditDetails != null) IconButton(onClick = onEditDetails, enabled = enabled) {
-                Icon(painterResource(R.drawable.ic_edit), stringResource(R.string.order_edit_details))
-            }
+    Surface(color = scheme.surfaceContainerLowest, contentColor = scheme.onSurface) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(vertical = WfSpacing.sm)) {
+            OrderHeaderField(
+                label = stringResource(R.string.order_attendant_label),
+                value = visit?.responsible?.name?.takeIf { it.isNotBlank() }
+                    ?: visit?.openedBy?.name?.takeIf { it.isNotBlank() } ?: workerName,
+                icon = R.drawable.ic_person,
+                action = stringResource(R.string.order_change_assignment),
+                actionDescription = stringResource(R.string.tables_change_responsible),
+                enabled = enabled,
+                onAction = onChangeResponsible,
+                modifier = Modifier.weight(1f)
+            )
+            VerticalDivider(Modifier.fillMaxHeight().padding(vertical = WfSpacing.xs), color = scheme.outlineVariant)
+            val hasTable = visit?.remoteTableId != null || (visit != null && !visit.apiBacked)
+            OrderHeaderField(
+                label = stringResource(R.string.order_table_label),
+                value = if (hasTable) visit?.tableName?.takeIf { it.isNotBlank() }
+                    ?: visit?.tableCode?.takeIf { it.isNotBlank() } ?: number?.toString().orEmpty()
+                    else stringResource(R.string.order_table_unassigned),
+                icon = R.drawable.ic_tables,
+                action = stringResource(if (hasTable) R.string.order_change_assignment else R.string.order_select_table),
+                actionDescription = stringResource(if (hasTable) R.string.tables_switch_table else R.string.tables_choose_table),
+                enabled = enabled,
+                onAction = onSelectTable,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
+    HorizontalDivider(color = scheme.outlineVariant)
+    }
+}
+
+@Composable
+private fun OrderHeaderField(
+    label: String,
+    value: String,
+    icon: Int,
+    action: String,
+    actionDescription: String,
+    enabled: Boolean,
+    onAction: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column(modifier.padding(horizontal = WfSpacing.md), verticalArrangement = Arrangement.spacedBy(WfSpacing.xs)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(WfSpacing.xs)) {
+            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium,
+                color = scheme.onSurfaceVariant)
+            FilledTonalButton(
+                onClick = { onAction?.invoke() }, enabled = enabled && onAction != null,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                modifier = Modifier.heightIn(min = 32.dp).semantics { contentDescription = actionDescription },
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = scheme.secondaryContainer, contentColor = scheme.onSecondaryContainer)
+            ) { Text(action, style = MaterialTheme.typography.labelSmall, fontSize = 11.sp) }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(painterResource(icon), null, Modifier.padding(top = 2.dp).size(16.dp), tint = scheme.primary)
+            Text(value, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
+        }
     }
 }
 
@@ -204,15 +257,20 @@ internal fun OrderDraftCard(
     expandRequest: Int,
     attentionRequest: Int,
     onEditNote: (OrderLine) -> Unit,
-    onAdjust: (OrderLine, Int) -> Unit
+    onAdjust: (OrderLine, Int) -> Unit,
+    onComment: (() -> Unit)? = null,
+    comment: String? = null,
+    time: String? = null
 ) {
-    OrderCard(
-        stringResource(R.string.order_dispatch, ordinal), stringResource(R.string.order_draft_status),
-        draft = true, expandRequest = expandRequest, attentionRequest = attentionRequest
+    val units = lines.sumOf { it.quantity.toLong() }
+    OrderSection(
+        stringResource(R.string.order_draft_status), unitsCount = units,
+        draft = true, time = time, expandRequest = expandRequest, attentionRequest = attentionRequest,
+        onComment = onComment, comment = comment, commentEnabled = !busy,
+        commentLabel = stringResource(R.string.order_edit_draft_comment)
     ) {
-        OrderColumns(editable = true)
-        lines.forEach { line ->
-            HorizontalDivider()
+        lines.forEachIndexed { index, line ->
+            if (index > 0) HorizontalDivider()
             OrderLineContent(line, onAdjust = { onAdjust(line, it) }, busy = busy, onEditNote = { onEditNote(line) })
         }
     }
@@ -228,25 +286,24 @@ internal fun RegisteredDispatchCard(
     onSelect: () -> Unit,
     onToggleLine: ((Int) -> Unit)?,
     onAdvanceLine: ((Int, KitchenItemStatus) -> Unit)? = null,
-    attentionRequest: Int = 0
+    attentionRequest: Int = 0,
+    selectionEnabled: Boolean = true,
+    statusActionsOnly: Boolean = false
 ) {
     val haptics = LocalHapticFeedback.current
-    val select = onSelect.takeIf { !busy && dispatch.canCancelLines }
-    val status = when {
-        dispatch.isCanceled -> R.string.order_canceled
-        dispatch.isDelivered -> R.string.order_dispatch_delivered
-        else -> R.string.order_sent_status
-    }
-    OrderCard(
+    val select = onSelect.takeIf { selectionEnabled && !busy && dispatch.canceledAt == null && dispatch.activeLines.isNotEmpty() }
+    var showComment by rememberSaveable(dispatch.remoteId, ordinal) { mutableStateOf(false) }
+    OrderSection(
         stringResource(R.string.order_dispatch, ordinal),
-        stringResource(status),
+        unitsCount = dispatch.lines.sumOf { it.quantity.toLong() },
         draft = false, time = tableActivityTime.format(dispatch.sentAt),
         selected = selected, served = dispatch.isDelivered, canceled = dispatch.isCanceled,
-        onSelect = select, attentionRequest = attentionRequest
+        onSelect = select, attentionRequest = attentionRequest,
+        onComment = { showComment = true }, comment = dispatch.note,
+        commentLabel = stringResource(R.string.order_view_dispatch_comment, ordinal)
     ) {
-        OrderColumns(editable = false)
         dispatch.lines.forEachIndexed { index, line ->
-            HorizontalDivider()
+            if (index > 0) HorizontalDivider()
             val canMark = dispatch.canceledAt == null && line.canCancel
             val nextStatus = when (line.dispatchStatus) {
                 KitchenItemStatus.SENT -> R.string.order_preparing
@@ -258,6 +315,7 @@ internal fun RegisteredDispatchCard(
             OrderLineContent(
                 line = if (dispatch.canceledAt == null) line else line.copy(kitchenStatus = KitchenItemStatus.CANCELED),
                 busy = busy,
+                statusActionsOnly = statusActionsOnly,
                 marked = canMark && index in markedLines,
                 onToggleMark = onToggleLine?.takeIf { canMark }?.let { toggle -> { toggle(index) } },
                 onAdvance = advance?.let { action -> { action(index, line.dispatchStatus) } },
@@ -273,12 +331,18 @@ internal fun RegisteredDispatchCard(
             )
         }
     }
+    if (showComment) WfDialog(
+        title = stringResource(R.string.order_dispatch_comment_title, ordinal),
+        message = dispatch.note?.takeIf { it.isNotBlank() } ?: stringResource(R.string.order_dispatch_comment_empty),
+        confirmLabel = stringResource(R.string.order_comment_close), dismissLabel = null,
+        onConfirm = { showComment = false }, onDismiss = { showComment = false }
+    )
 }
 
 @Composable
-private fun OrderCard(
+private fun OrderSection(
     title: String,
-    status: String,
+    unitsCount: Long = 0,
     draft: Boolean,
     time: String? = null,
     selected: Boolean = false,
@@ -287,9 +351,14 @@ private fun OrderCard(
     onSelect: (() -> Unit)? = null,
     expandRequest: Int = 0,
     attentionRequest: Int = 0,
+    onComment: (() -> Unit)? = null,
+    comment: String? = null,
+    commentEnabled: Boolean = true,
+    commentLabel: String = "",
     content: @Composable ColumnScope.() -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
+    val commentPreview = comment?.trim()?.takeIf { it.isNotEmpty() }
     var expanded by rememberSaveable(expandRequest) { mutableStateOf(true) }
     val attention = remember { Animatable(0f) }
     LaunchedEffect(attentionRequest) {
@@ -320,7 +389,7 @@ private fun OrderCard(
     val headerContentColor = when {
         canceled -> scheme.onErrorContainer
         served -> positive.content
-        else -> LocalContentColor.current
+        else -> scheme.onSurface
     }
     val haptics = LocalHapticFeedback.current
     val selectDispatch by rememberUpdatedState {
@@ -348,48 +417,51 @@ private fun OrderCard(
             Surface(color = headerColor, contentColor = headerContentColor) {
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = WfSize.minTouchTarget)
-                        .padding(start = WfSpacing.md, end = WfSpacing.xs),
+                        .padding(start = WfSpacing.md, end = WfSpacing.xs, top = WfSpacing.xs, bottom = WfSpacing.xs),
                     horizontalArrangement = Arrangement.spacedBy(WfSpacing.sm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(WfSpacing.sm),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(title, style = MaterialTheme.typography.titleSmall)
-                        StatusLabel(
-                            status,
-                            when {
-                                canceled -> scheme.error
-                                served -> scheme.surface
-                                else -> scheme.surfaceContainerHighest
-                            },
-                            when {
-                                canceled -> scheme.onError
-                                served -> positive.content
-                                else -> scheme.onSurfaceVariant
-                            }
-                        )
+                    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(WfSpacing.sm),
+                        verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1)
+                    FilledTonalButton(onClick = { onComment?.invoke() }, enabled = onComment != null && commentEnabled,
+                        modifier = Modifier.weight(1f, fill = false).semantics { contentDescription = commentLabel },
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(horizontal = WfSpacing.sm, vertical = WfSpacing.xs),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = scheme.primary.copy(alpha = if (commentPreview != null) 0.14f else 0.09f),
+                            contentColor = scheme.primary,
+                            disabledContainerColor = scheme.primary.copy(alpha = 0.05f),
+                            disabledContentColor = scheme.onSurfaceVariant)) {
+                        Row(Modifier.heightIn(min = 32.dp),
+                            horizontalArrangement = Arrangement.spacedBy(WfSpacing.xs), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(painterResource(WfIcons.Comment), null, Modifier.size(20.dp),
+                                tint = if (commentPreview != null) scheme.primary else scheme.onSurfaceVariant.copy(alpha = 0.6f))
+                            Text(commentPreview ?: stringResource(if (draft) R.string.order_add_round_note else R.string.order_no_round_note),
+                                style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
                     }
-                    if (time != null) Text(
-                        time,
-                        style = MaterialTheme.typography.labelMedium,
-                        textAlign = TextAlign.End
-                    )
-                    IconButton(
-                        onClick = { expanded = !expanded },
-                        modifier = Modifier.size(WfSize.minTouchTarget)
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.ic_chevron_right),
-                            stringResource(if (expanded) R.string.order_collapse_dispatch else R.string.order_expand_dispatch, title),
-                            Modifier.size(18.dp).rotate(if (expanded) -90f else 90f)
-                        )
+                    }
+                    val toggleLabel = stringResource(if (expanded) R.string.order_collapse_dispatch else R.string.order_expand_dispatch, title)
+                    Row(Modifier.sizeIn(minWidth = WfSize.minTouchTarget, minHeight = WfSize.minTouchTarget)
+                        .semantics { contentDescription = toggleLabel }
+                        .clickable(role = Role.Button, onClickLabel = toggleLabel) { expanded = !expanded }
+                        .padding(horizontal = WfSpacing.xs),
+                        horizontalArrangement = Arrangement.spacedBy(WfSpacing.xs, Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        if (time != null) Text(time, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End)
+                        Icon(painterResource(R.drawable.ic_chevron_right), null,
+                            Modifier.size(18.dp).rotate(if (expanded) -90f else 90f))
                     }
                 }
             }
-            if (expanded) Column(Modifier.padding(WfSpacing.md), verticalArrangement = Arrangement.spacedBy(WfSpacing.sm), content = content)
+            if (expanded) Column(Modifier.padding(horizontal = WfSpacing.md, vertical = WfSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(WfSpacing.xs), content = content)
+            else Row(Modifier.fillMaxWidth().padding(horizontal = WfSpacing.md, vertical = WfSpacing.sm),
+                horizontalArrangement = Arrangement.End) {
+                Text(pluralStringResource(R.plurals.order_draft_units, if (unitsCount == 1L) 1 else 2, unitsCount),
+                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            }
         }
     }
 }
@@ -424,14 +496,15 @@ private fun OrderLineContent(
     onAdvance: (() -> Unit)? = null,
     onDeliver: (() -> Unit)? = null,
     advanceLabel: String? = null,
-    onLongPress: (() -> Unit)? = null
+    onLongPress: (() -> Unit)? = null,
+    statusActionsOnly: Boolean = false
 ) {
     val scheme = MaterialTheme.colorScheme
     val interaction = when {
         onToggleMark != null -> Modifier.toggleable(
             value = marked, enabled = !busy, onValueChange = { onToggleMark() }
         )
-        onAdvance != null -> Modifier.combinedClickable(
+        onAdvance != null && !statusActionsOnly -> Modifier.combinedClickable(
             enabled = !busy,
             role = Role.Button,
             onClickLabel = advanceLabel,
@@ -446,8 +519,10 @@ private fun OrderLineContent(
         contentColor = if (marked) scheme.onErrorContainer else LocalContentColor.current,
         shape = MaterialTheme.shapes.extraSmall
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)) {
-            OrderLineDetails(line, busy, onAdjust, onEditNote)
+        Column(verticalArrangement = Arrangement.spacedBy(WfSpacing.xs)) {
+            OrderLineDetails(line, busy, onAdjust, onEditNote,
+                onStatusClick = if (statusActionsOnly) onAdvance ?: onDeliver else null,
+                statusClickLabel = advanceLabel ?: if (onDeliver != null) stringResource(R.string.order_confirm_delivery, line.product) else null)
             if (onDeliver != null) {
                 val deliveryLabel = stringResource(R.string.order_confirm_delivery, line.product)
                 WfButton(
@@ -468,11 +543,13 @@ private fun OrderLineDetails(
     line: OrderLine,
     busy: Boolean,
     onAdjust: ((Int) -> Unit)?,
-    onEditNote: (() -> Unit)?
+    onEditNote: (() -> Unit)?,
+    onStatusClick: (() -> Unit)? = null,
+    statusClickLabel: String? = null
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(
-        verticalArrangement = Arrangement.spacedBy(WfSpacing.xs)
+        verticalArrangement = Arrangement.spacedBy(WfSpacing.xxs)
     ) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = WfSize.minTouchTarget),
@@ -487,13 +564,14 @@ private fun OrderLineDetails(
                 val typography = MaterialTheme.typography
                 Text(
                     line.product,
-                    style = typography.titleSmall.copy(lineHeight = 1.25.em),
-                    autoSize = ProductNameSize(typography.titleSmall.fontSize, typography.bodyMedium.fontSize),
+                    style = typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (line.options.isNotEmpty()) {
-                    Text(line.options.joinToString(), style = MaterialTheme.typography.bodySmall)
+                val visibleOptions = line.options.filter { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+                if (visibleOptions.isNotEmpty()) {
+                    Text(visibleOptions.joinToString(), style = MaterialTheme.typography.bodySmall)
                 }
             }
             if (onAdjust != null) {
@@ -521,24 +599,20 @@ private fun OrderLineDetails(
             } else {
                 Text(line.quantity.toString(), Modifier.width(38.dp), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelLarge)
             }
-            Text(formatCartaPrice(line.totalInCents), Modifier.width(68.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge)
+            Text(formatCartaPrice(line.totalInCents, line.currencyCode), Modifier.width(68.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge)
             if (onAdjust == null) {
-                Column(Modifier.width(KitchenStatusWidth), horizontalAlignment = Alignment.CenterHorizontally) {
+                val action = if (onStatusClick == null) Modifier else Modifier.heightIn(min = WfSize.minTouchTarget)
+                    .clickable(enabled = !busy, onClickLabel = statusClickLabel, role = Role.Button, onClick = onStatusClick)
+                Column(Modifier.width(KitchenStatusWidth).then(action), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center) {
                     KitchenStatusLabel(line.dispatchStatus)
                 }
             }
         }
         val note = line.note
-        if (note != null) {
+        if (!note.isNullOrBlank() && !note.equals("null", ignoreCase = true)) {
             StatusLabel(stringResource(R.string.order_note_text, note), scheme.surfaceContainer, scheme.onSurface)
         }
-    }
-}
-
-private data class ProductNameSize(val regular: TextUnit, val compact: TextUnit) : TextAutoSize {
-    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit {
-        val layout = performLayout(constraints, text, regular)
-        return if (layout.lineCount != 1 || layout.hasVisualOverflow || layout.isLineEllipsized(0)) compact else regular
     }
 }
 

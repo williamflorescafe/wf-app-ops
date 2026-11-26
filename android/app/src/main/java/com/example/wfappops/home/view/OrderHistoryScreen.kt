@@ -52,10 +52,12 @@ internal fun OrderHistoryScreen(
     var status by rememberSaveable { mutableIntStateOf(0) }
     val activeFilter = HomeOrderFilter.entries[status]
     val listState = key(day, status, query) { rememberLazyListState() }
+    val unassigned = stringResource(R.string.order_table_unassigned)
     val filteredOrders = orders?.map { list -> list.filter { order ->
         val matchesStatus = activeFilter == HomeOrderFilter.ALL || order.productsFor(activeFilter).isNotEmpty()
-        order.hasDisplayableProducts && matchesStatus && (query.isEmpty() || order.number.toString().contains(query, true) ||
-            (order.tableCode ?: order.tableName ?: order.table.toString()).contains(query, true))
+        val number = if (order.localDraft) order.localDraftNumber?.toString().orEmpty() else order.number.toString()
+        val table = if (order.hasAssignedTable) order.tableName ?: order.tableCode ?: order.table.toString() else unassigned
+        order.hasDisplayableProducts && matchesStatus && (query.isEmpty() || number.contains(query, true) || table.contains(query, true))
     } }
     Column(Modifier.fillMaxSize().background(WfThemeExtras.operationsBackground)) {
         WfScreenTitle(stringResource(R.string.ops_orders), stringResource(R.string.orders_last_two_days))

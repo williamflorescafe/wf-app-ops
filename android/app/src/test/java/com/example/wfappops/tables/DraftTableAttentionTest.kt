@@ -16,10 +16,10 @@ class DraftTableAttentionTest {
     private val key = TableReference(location.id, table.id)
 
     @Test
-    fun firstProductOccupiesTableAndRegistersDraftWithItsCreatorBeforeKitchenDispatch() {
+    fun firstProductKeepsPrivateDraftWithoutAnOfficialNumber() {
         val selected = TableService().openApiTable(location, table, other)
         val visit = selected.visits.single()
-        assertTrue(selected.localTableAttentions().isEmpty())
+        assertEquals(TableAttention.Free, selected.localTableAttentions()[key])
         assertTrue(selected.registeredOrders().isEmpty())
 
         val saved = selected.add(visit.id, line, time, opener)
@@ -29,7 +29,8 @@ class DraftTableAttentionTest {
         assertEquals(visit.id, occupied.visitId)
         assertEquals(visit.table, occupied.internalTable)
         val order = saved.ordersBy(opener.id).single()
-        assertEquals(1, order.number)
+        assertNull(saved.visits.single().orderNumber)
+        assertTrue(order.localDraft)
         assertEquals(time, order.startedAt)
         assertEquals(RegisteredOrderStatus.DRAFT, order.status)
         assertTrue(saved.visits.single().dispatches.isEmpty())
@@ -52,23 +53,23 @@ class DraftTableAttentionTest {
     }
 
     @Test
-    fun clearingOnlyDraftFreesTableAndNextAttentionGetsAnotherNumber() {
+    fun clearingUnsentDraftFreesLocalTableWithoutReservingOrCancelingAnOfficialNumber() {
         val selected = TableService().openApiTable(location, table, opener)
         val id = selected.visits.single().id
         val saved = selected.add(id, line, time, opener)
         val emptied = saved.adjustDraft(id, line, -1)
-        assertTrue(emptied.visits.single().isDiscardedDraft)
-        assertEquals(1, emptied.visits.single().orderNumber)
-        assertEquals(RegisteredOrderStatus.CANCELED, emptied.registeredOrders().single().status)
-        assertNull(emptied.openVisit(saved.visits.single().table))
+        assertFalse(emptied.visits.single().isDiscardedDraft)
+        assertNull(emptied.visits.single().orderNumber)
+        assertTrue(emptied.registeredOrders().isEmpty())
+        assertNotNull(emptied.openVisit(saved.visits.single().table))
         assertEquals(TableAttention.Free, emptied.localTableAttentions()[key])
         val reopened = emptied.openApiTable(location, table, other)
         val nextId = reopened.openVisit(reopened.visits.last().table)!!.id
         val next = reopened.add(nextId, line, time.plusSeconds(120), other)
-        assertNotEquals(id, nextId)
-        assertEquals(2, next.visits.last().orderNumber)
+        assertEquals(id, nextId)
+        assertNull(next.visits.last().orderNumber)
         assertEquals("Lucía P.", (next.localTableAttentions()[key] as TableAttention.Occupied).attendant?.shortName)
-        assertEquals(2, next.visits.size)
+        assertEquals(1, next.visits.size)
     }
 
     @Test
@@ -118,7 +119,7 @@ class DraftTableAttentionTest {
         assertEquals(5, repaired.registeredOrders().first { it.visitId == stale.id }.number)
         val next = repaired.openApiTable(location, table, other)
         val added = next.add(next.visits.last().id, line, time.plusSeconds(1), other)
-        assertEquals(8, added.visits.last().orderNumber)
+        assertNull(added.visits.last().orderNumber)
     }
 
     @Test

@@ -56,8 +56,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -70,6 +68,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
+import com.example.wfappops.carta.orderLine
+import com.example.wfappops.ui.components.WfDropdownField
+import com.example.wfappops.ui.components.WfRefreshContainer
 import com.example.wfappops.carta.CartaCollection
 import com.example.wfappops.carta.CartaPhoto
 import com.example.wfappops.carta.CartaProduct
@@ -78,7 +79,6 @@ import com.example.wfappops.carta.OrderNoteField
 import com.example.wfappops.orders.model.OrderLine
 import com.example.wfappops.ui.components.EmptyState
 import com.example.wfappops.ui.components.ErrorState
-import com.example.wfappops.ui.components.WfDialog
 import com.example.wfappops.ui.theme.WfRadius
 import com.example.wfappops.ui.theme.WfSize
 import com.example.wfappops.ui.theme.WfSpacing
@@ -101,29 +101,28 @@ internal fun OrderProductSheet(
     catalog: Result<List<CartaCollection>>?,
     onRetry: () -> Unit,
     onDismiss: () -> Unit,
-    onAdd: (OrderLine) -> Unit
+    onAdd: (OrderLine) -> Unit,
+    refreshing: Boolean = false,
+    onRefresh: () -> Unit = onRetry,
+    locations: List<com.example.wfappops.auth.model.TeamLocation> = emptyList(),
+    selectedLocationId: String? = null,
+    errorMessage: Int? = null,
+    onLocation: ((String) -> Unit)? = null,
+    operationMessage: String? = null
 ) {
     val collections = catalog?.getOrNull().orEmpty()
     val quantities = remember(lines) {
-        lines.groupingBy { it.product }.fold(0L) { count, line -> count + line.quantity }
+        lines.groupingBy { it.productId }.fold(0L) { count, line -> count + line.quantity }
     }
     val searchField = rememberTextFieldState()
     val query = searchField.text.toString()
     var categoryId by rememberSaveable { mutableStateOf<String?>(null) }
     val activeCategory = collections.firstOrNull { it.id == categoryId }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
-    var quickAddId by rememberSaveable { mutableStateOf<String?>(null) }
-    var quickAddNote by rememberSaveable { mutableStateOf("") }
-    val quickAddProduct = remember(collections, quickAddId) {
-        collections.asSequence().flatMap { it.sections.asSequence() }.flatMap { it.products.asSequence() }
-            .firstOrNull { it.id == quickAddId }
-    }
     var handledAdds by rememberSaveable { mutableIntStateOf(addedProducts) }
     LaunchedEffect(addedProducts) {
         if (addedProducts > handledAdds) {
             selectedId = null
-            quickAddId = null
-            quickAddNote = ""
         }
         handledAdds = addedProducts
     }
@@ -179,7 +178,7 @@ internal fun OrderProductSheet(
         ) {
             if (selected != null) {
                 Column(Modifier.fillMaxSize().padding(horizontal = WfSpacing.lg)) {
-                    if (failed) Text(stringResource(R.string.cart_error), color = scheme.error)
+                    if (failed) Text(operationMessage ?: stringResource(errorMessage ?: R.string.cart_error), color = scheme.error)
                     TextButton(
                         onClick = { selectedId = null },
                         modifier = Modifier.sizeIn(minWidth = WfSize.minTouchTarget, minHeight = WfSize.minTouchTarget),
@@ -194,7 +193,7 @@ internal fun OrderProductSheet(
                     ProductDetail(
                         product = selected.second,
                         collection = selected.first,
-                        adding = busy,
+                        adding = busy || refreshing,
                         onAdd = onAdd,
                         forOrder = true
                     )
@@ -238,9 +237,17 @@ internal fun OrderProductSheet(
                     color = scheme.surfaceContainerLow
                 ) {
                     Column(Modifier.fillMaxSize()) {
+                        if (locations.size > 1 && onLocation != null) {
+                            WfDropdownField(stringResource(R.string.tables_location),
+                                locations.firstOrNull { it.id == selectedLocationId }?.name.orEmpty(),
+                                if (busy || refreshing) emptyList() else locations.map { it.id to it.name }, onLocation,
+                                Modifier.fillMaxWidth().padding(WfSpacing.md))
+                        }
+                        WfRefreshContainer(isRefreshing = refreshing && catalog != null, onRefresh = onRefresh,
+                            enabled = !busy && selectedLocationId != null, modifier = Modifier.weight(1f).fillMaxWidth()) {
                         LazyColumn(
                             state = listState,
-                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(WfSpacing.md),
                             verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)
                         ) {
@@ -257,14 +264,32 @@ internal fun OrderProductSheet(
                                     })
                                 }
                             }
-                            if (failed) item { ErrorState(stringResource(R.string.cart_error), onRetry = null) }
+                            if (failed) item { ErrorState(operationMessage ?: stringResource(errorMessage ?: R.string.cart_error), onRetry = null) }
                             when {
                                 catalog == null -> item { CircularProgressIndicator() }
                                 catalog.isFailure -> item {
-                                    ErrorState(stringResource(R.string.order_catalog_error), onRetry)
+                                    val error = catalog.exceptionOrNull() as? com.example.wfappops.auth.data.AuthApiException
+                                    val fallback = when (error?.status) {
+                                        403 -> when (error.code) {
+                                            "client.menu_permission_missing" -> R.string.menu_permission_missing
+                                            "client.menu_location_denied" -> R.string.menu_location_denied
+                                            else -> R.string.menu_access_denied
+                                        }
+                                        404 -> R.string.tables_location_unavailable
+                                        409 -> R.string.menu_temporarily_unavailable
+                                        429 -> R.string.auth_rate_limit
+                                        else -> R.string.order_catalog_error
+                                    }
+                                    ErrorState(
+                                        if (error?.status == 403) stringResource(fallback) else error?.serverMessage ?: stringResource(fallback),
+                                        when (error?.status) { 403 -> onRefresh; 401, 404, 409 -> null; else -> onRetry },
+                                        title = stringResource(if (error?.status == 403) R.string.menu_access_title else R.string.menu_load_error_title),
+                                        retryLabel = stringResource(if (error?.status == 403) R.string.menu_refresh_access else R.string.auth_retry)
+                                    )
                                 }
                                 matching.isEmpty() -> item {
-                                    EmptyState(stringResource(R.string.state_empty_products_title), stringResource(R.string.order_search_empty))
+                                    EmptyState(stringResource(R.string.state_empty_products_title),
+                                        stringResource(if (query.isBlank() && visibleCategoryId == null) R.string.menu_empty else R.string.order_search_empty))
                                     if (visibleCategoryId != null && query.isNotBlank()) {
                                         TextButton(onClick = { categoryId = null }) {
                                             Text(stringResource(R.string.order_search_all))
@@ -280,19 +305,20 @@ internal fun OrderProductSheet(
                                                 style = MaterialTheme.typography.titleMedium
                                             )
                                         }
-                                        items(section.products, key = { it.id }) { product ->
+                                        items(section.products, key = { "${collection.id}/${section.id}/${it.id}" }) { product ->
                                             val openDetail = {
                                                 focus.clearFocus()
                                                 selectedId = product.id
                                             }
                                             OrderProductCard(
-                                                product, quantities[product.name] ?: 0, enabled = !busy,
+                                                product, quantities[product.id] ?: 0, enabled = !busy && !refreshing && product.canOrder,
                                                 onOpen = openDetail,
                                                 onAdd = {
-                                                    if (product.modifierGroups.isEmpty()) {
+                                                    if (product.modifierGroups.isEmpty() && product.variants.size <= 1) {
                                                         focus.clearFocus()
-                                                        quickAddNote = ""
-                                                        quickAddId = product.id
+                                                        if (!busy && !refreshing && product.canOrder) {
+                                                            onAdd(product.orderLine(product.variants.singleOrNull()?.id, emptyMap()))
+                                                        }
                                                     } else {
                                                         openDetail()
                                                     }
@@ -302,6 +328,7 @@ internal fun OrderProductSheet(
                                     }
                                 }
                             }
+                        }
                         }
                         Surface(color = scheme.surfaceContainerLow) {
                             Button(
@@ -323,37 +350,6 @@ internal fun OrderProductSheet(
                     }
                 }
             }
-        }
-    }
-    if (quickAddProduct != null) {
-        WfDialog(
-            title = quickAddProduct.name,
-            confirmLabel = stringResource(R.string.order_add_product),
-            busy = busy,
-            onConfirm = {
-                onAdd(OrderLine(
-                    product = quickAddProduct.name,
-                    quantity = 1,
-                    unitPriceInCents = quickAddProduct.priceInCents,
-                    note = quickAddNote.trim().ifEmpty { null }
-                ))
-            },
-            onDismiss = {
-                quickAddId = null
-                quickAddNote = ""
-            }
-        ) {
-            if (failed) ErrorState(stringResource(R.string.cart_error), onRetry = null)
-            val noteFocus = remember { FocusRequester() }
-            OrderNoteField(
-                value = quickAddNote,
-                onValueChange = { quickAddNote = it },
-                label = stringResource(R.string.order_optional_note),
-                modifier = Modifier.fillMaxWidth().focusRequester(noteFocus),
-                minLines = 2,
-                enabled = !busy
-            )
-            LaunchedEffect(quickAddProduct.id) { noteFocus.requestFocus() }
         }
     }
 }
@@ -457,6 +453,8 @@ private fun OrderProductCard(
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(WfSpacing.xs)) {
                 Text(product.name, style = MaterialTheme.typography.titleSmall)
+                if (!product.canOrder) Text(stringResource(R.string.menu_unavailable),
+                    style = MaterialTheme.typography.labelMedium, color = scheme.error)
                 if (product.description.isNotBlank()) {
                     Text(
                         product.description,

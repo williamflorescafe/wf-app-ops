@@ -22,7 +22,9 @@ import androidx.core.app.Person
 import androidx.core.content.ContextCompat
 import com.example.wfappops.MainActivity
 import com.example.wfappops.R
+import com.example.wfappops.auth.hasOpsAccess
 import com.example.wfappops.orders.model.ReadyProductNotice
+import java.time.Instant
 
 internal data class ReadyNotificationRecipient(val storageId: String, val employeeId: String, val name: String) {
     val tag get() = "${Uri.encode(storageId)}/${Uri.encode(employeeId)}"
@@ -97,7 +99,8 @@ internal class ReadyProductNotifier(context: Context) {
         return true
     }
 
-    fun selectRecipient(recipient: ReadyNotificationRecipient?) {
+    fun selectRecipient(recipient: ReadyNotificationRecipient?) = synchronized(syncLock) {
+        preferences.edit().putString(ACTIVE_RECIPIENT, recipient?.tag).apply()
         manager.activeNotifications.forEach { active ->
             if (active.notification.channelId == CHANNEL && active.tag != recipient?.tag) {
                 manager.cancel(active.tag, active.id)
@@ -105,26 +108,34 @@ internal class ReadyProductNotifier(context: Context) {
         }
     }
 
-    fun sync(recipient: ReadyNotificationRecipient, notices: List<ReadyProductNotice>) {
-        if (!enabled()) return
+    fun sync(recipient: ReadyNotificationRecipient, notices: List<ReadyProductNotice>, now: Instant = Instant.now()) = synchronized(syncLock) {
+        if (!app.hasOpsAccess(recipient.storageId) || preferences.getString(ACTIVE_RECIPIENT, recipient.tag) != recipient.tag) return@synchronized
+        val update = NotificationHistoryStore(app, recipient).sync(notices, now)
+        // El historial se conserva incluso si Android no permite sonido o publicación de avisos.
+        if (!enabled()) return@synchronized
         val tag = recipient.tag
-        val current = notices.mapTo(mutableSetOf()) { notice ->
-            val key = notice.key
-            "${Uri.encode(key.visitId)}/${key.dispatchIndex}/${key.lineIndex}"
-        }
+        val current = notices.mapTo(mutableSetOf()) { it.identity }
         val previous = preferences.getStringSet(tag, emptySet()).orEmpty()
-        if (current == previous) return
-
-        val hasNewMessages = current.any { it !in previous }
+        val postedKeys = preferences.getStringSet("posted/$tag", emptySet()).orEmpty()
+        val hasNewMessages = current.any { it !in postedKeys }
+        if (current == previous && update.reminders.isEmpty() && update.arrivals.isEmpty() && !hasNewMessages) return@synchronized
+        val remind = update.reminders.isNotEmpty() && !hasNewMessages
         val active = manager.activeNotifications.any { it.id == NOTIFICATION_ID && it.tag == tag }
         if (current.isEmpty()) {
             manager.cancel(tag, NOTIFICATION_ID)
-        } else if (active || hasNewMessages) {
+        } else if (active || hasNewMessages || remind) {
             ensureChannel()
             try {
-                manager.notify(tag, NOTIFICATION_ID, buildNotification(recipient, notices, silent = !hasNewMessages))
+                val entries = if (remind) update.reminders else notices.groupBy { it.groupIdentity }.map { (key, group) ->
+                    val first = group.first()
+                    LocalNotification(key, LocalNotificationKind.READY, first.product, group.sumOf { it.quantity },
+                        first.tableLabel ?: first.table.toString(), first.orderNumber, first.locationId,
+                        group.mapNotNull { update.history.firstSeen[it.identity] }.maxOrNull() ?: now, first.locationName)
+                }
+                manager.notify(tag, NOTIFICATION_ID, buildNotification(recipient, entries, silent = !hasNewMessages && !remind))
+                preferences.edit().putStringSet("posted/$tag", postedKeys + current).apply()
             } catch (_: SecurityException) {
-                return
+                return@synchronized
             }
         }
         preferences.edit().putStringSet(tag, current).apply()
@@ -143,14 +154,14 @@ internal class ReadyProductNotifier(context: Context) {
 
     private fun buildNotification(
         recipient: ReadyNotificationRecipient,
-        notices: List<ReadyProductNotice>,
+        notices: List<LocalNotification>,
         silent: Boolean
     ): Notification {
-        val kitchen = Person.Builder().setName(app.getString(R.string.ops_kitchen)).setKey(CHANNEL).build()
+        val kitchen = Person.Builder().setName(app.getString(R.string.ready_notification_channel)).setKey(CHANNEL).build()
         val style = NotificationCompat.MessagingStyle(Person.Builder().setName(recipient.name).build())
             .setGroupConversation(false)
         notices.takeLast(NotificationCompat.MessagingStyle.MAXIMUM_RETAINED_MESSAGES).forEach { notice ->
-            style.addMessage(message(notice), notice.readyAt.toEpochMilli(), kitchen)
+            style.addMessage(message(notice), notice.receivedAt.toEpochMilli(), kitchen)
         }
         val launch = Intent(app, MainActivity::class.java)
             .setAction(Intent.ACTION_MAIN)
@@ -160,10 +171,11 @@ internal class ReadyProductNotifier(context: Context) {
         val last = notices.last()
         return NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(R.drawable.ic_kitchen)
-            .setContentTitle(app.getString(R.string.ops_kitchen))
+            .setContentTitle(app.getString(if (last.kind == LocalNotificationKind.SERVE_REMINDER)
+                R.string.notification_serve_reminder_title else R.string.notification_ready_title))
             .setContentText(message(last))
             .setContentIntent(openApp)
-            .setWhen(last.readyAt.toEpochMilli())
+            .setWhen(last.receivedAt.toEpochMilli())
             .setNumber(notices.size)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
@@ -173,18 +185,20 @@ internal class ReadyProductNotifier(context: Context) {
             .build()
     }
 
-    private fun message(notice: ReadyProductNotice): String {
-        val table = notice.tableLabel ?: app.getString(R.string.order_table_number, notice.table)
-        val product = if (notice.quantity == 1) notice.product else {
-            app.getString(R.string.kitchen_quantity, notice.quantity, notice.product)
-        }
-        return app.resources.getQuantityString(R.plurals.ready_notification_message, notice.quantity, table, product)
+    private fun message(notice: LocalNotification): String {
+        val product = if (notice.quantity == 1) notice.product else "${notice.quantity} × ${notice.product}"
+        val order = notice.orderNumber?.let { app.getString(R.string.order_number, it) }
+        val detail = app.getString(if (notice.kind == LocalNotificationKind.SERVE_REMINDER)
+            R.string.notification_serve_reminder_body else R.string.notification_ready_body, product)
+        return listOfNotNull(detail, order, app.getString(R.string.notification_table_label, notice.tableLabel)).joinToString(" · ")
     }
 
     private companion object {
         const val CHANNEL = "kitchen-ready"
         const val NOTIFICATION_ID = 2101
         const val PERMISSION_REQUESTED = "permission-requested"
+        const val ACTIVE_RECIPIENT = "active-recipient"
+        val syncLock = Any()
         val defaultSound: Uri get() = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
     }
 }

@@ -26,10 +26,21 @@ internal data class CartaProduct(
     val description: String,
     val priceInCents: Long,
     val photos: List<String>,
-    val modifierGroups: List<CartaModifierGroup>
+    val modifierGroups: List<CartaModifierGroup>,
+    val variants: List<CartaVariant> = emptyList(),
+    val available: Boolean = true,
+    val currencyCode: String = "PEN",
+    val locationId: String? = null,
+    val menuId: String? = null
 ) {
-    val price get() = formatCartaPrice(priceInCents)
+    val price get() = if (locationId != null && variants.isEmpty()) "—" else formatCartaPrice(priceInCents, currencyCode)
+    val canOrder get() = available && (locationId == null || variants.any { it.available })
+    fun groupsFor(variantId: String?) = modifierGroups.filter { it.variantId == null || it.variantId == variantId }
+        .groupBy { it.id }.map { (_, groups) -> groups.lastOrNull { it.variantId == variantId && variantId != null } ?: groups.first() }
 }
+
+internal data class CartaVariant(val id: String, val name: String, val priceMinor: Long,
+                                 val currencyCode: String, val available: Boolean)
 
 internal suspend fun loadCarta(assets: AssetManager): Result<List<CartaCollection>> =
     loadCatalog(assets, "carta/catalogo.json") { catalog, customizations ->

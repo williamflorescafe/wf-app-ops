@@ -4,12 +4,14 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.initializer
@@ -57,10 +59,25 @@ class CreateOrderActivity : ComponentActivity() {
                 ReadyProductNotifications(ReadyNotificationRecipient(storageId, workerId, workerName))
                 val state by order.uiState.collectAsStateWithLifecycle()
                 val catalog by order.catalogState.collectAsStateWithLifecycle()
+                LaunchedEffect(order) {
+                    lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                        order.refreshRemote()
+                        while (true) { kotlinx.coroutines.delay(30_000); order.refreshRemote() }
+                    }
+                }
+                LaunchedEffect(state.sessionExpired) {
+                    if (state.sessionExpired) {
+                        startActivity(Intent(this@CreateOrderActivity, com.example.wfappops.MainActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+                        finish()
+                    }
+                }
                 CreateOrderScreen(
                     state = state,
                     catalog = catalog,
                     onLoadCatalog = order::loadCatalog,
+                    onRefreshCatalog = order::refreshCatalog,
+                    onMenuLocation = order::selectMenuLocation,
                     onReload = order::reload,
                     onOpenTable = order::openTable,
                     onAddProduct = order::addProduct,
@@ -69,6 +86,9 @@ class CreateOrderActivity : ComponentActivity() {
                     onSaveComment = order::saveComment,
                     onSendToCashier = order::sendToCashier,
                     onSendOrder = order::sendOrder,
+                    onSendSelection = order::sendSelected,
+                    onCancelOrder = order::cancelOrder,
+                    onRecoverDraft = order::recoverDraft,
                     onAdvanceLine = order::advanceLine,
                     onCancelLines = order::cancelLines,
                     onDismissKitchenUnavailable = order::dismissKitchenUnavailable,

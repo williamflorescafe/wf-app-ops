@@ -17,17 +17,26 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.wfappops.R
 import com.example.wfappops.orders.data.OrderRepository
 import com.example.wfappops.orders.model.readyNoticesFor
 import com.example.wfappops.ui.components.WfButton
 import com.example.wfappops.ui.components.WfButtonStyle
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.retryWhen
 
 @Composable
 internal fun ReadyProductNotifications(recipient: ReadyNotificationRecipient?) {
     val context = LocalContext.current.applicationContext
     val notifier = remember(context) { ReadyProductNotifier(context) }
+    val owner = LocalLifecycleOwner.current
     var enabled by remember(notifier) { mutableStateOf(notifier.enabled()) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         enabled = notifier.enabled()
@@ -39,15 +48,36 @@ internal fun ReadyProductNotifications(recipient: ReadyNotificationRecipient?) {
             permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-    LaunchedEffect(notifier, recipient, enabled) {
-        if (recipient == null || !enabled) return@LaunchedEffect
-        readyProductNotices(context, recipient)
-            .catch { error -> Log.w("ReadyProductNotifications", "Could not read ready products", error) }
-            .collect { notices -> notifier.sync(recipient, notices) }
+    LaunchedEffect(notifier, recipient, enabled, owner) {
+        if (recipient == null) return@LaunchedEffect
+        owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            coroutineScope {
+                var current: List<com.example.wfappops.orders.model.ReadyProductNotice>? = null
+                launch {
+                    readyProductNotices(context, recipient).onEach { notices ->
+                        withContext(Dispatchers.IO) { notifier.sync(recipient, notices) }
+                        current = notices
+                    }.retryWhen { _, _ ->
+                        current = null
+                        Log.w("ReadyProductNotifications", "Could not persist ready-product notifications")
+                        delay(5_000); true
+                    }.collect { }
+                }
+                launch {
+                    while (true) {
+                        delay(15_000)
+                        current?.let { notices -> withContext(Dispatchers.IO) {
+                            runCatching { notifier.sync(recipient, notices) }
+                                .onFailure { Log.w("ReadyProductNotifications", "Could not persist notification reminder") }
+                        } }
+                    }
+                }
+            }
+        }
     }
 }
 
-/** Observa el mismo almacenamiento personal que usa el flujo manual de comandas. */
+/** Observa la proyección persistida de la cuenta activa; no simula eventos del servidor. */
 internal fun readyProductNotices(context: Context, recipient: ReadyNotificationRecipient) =
     OrderRepository(context, recipient.storageId, localDraftEmployeeId = recipient.employeeId)
         .observe { it.readyNoticesFor(recipient.employeeId) }

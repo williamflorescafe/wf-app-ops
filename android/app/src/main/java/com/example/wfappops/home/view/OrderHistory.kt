@@ -69,7 +69,7 @@ internal fun LazyListScope.orderHistoryItems(
                         LocalDate.now(tableZone) -> stringResource(R.string.home_orders_today)
                         else -> tableActivityDay.format(day)
                     },
-                    modifier = Modifier.padding(top = WfSpacing.sm),
+                    modifier = Modifier.padding(top = WfSpacing.xs),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

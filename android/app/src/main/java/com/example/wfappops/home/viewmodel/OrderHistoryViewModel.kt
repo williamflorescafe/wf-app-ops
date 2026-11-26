@@ -32,7 +32,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 
-internal data class OrderHistoryScope(val storageId: String, val employeeId: String)
+internal data class OrderHistoryScope(val storageId: String, val employeeId: String, val locationId: String? = null)
 
 internal data class OrderOverview(
     val orders: List<RegisteredOrder>, val tables: List<ServiceTable>,
@@ -42,7 +42,8 @@ internal data class OrderOverview(
 internal data class OrderHistoryUiState(
     val scope: OrderHistoryScope? = null,
     val result: Result<OrderOverview>? = null,
-    val day: LocalDate = LocalDate.now(tableZone)
+    val day: LocalDate = LocalDate.now(tableZone),
+    val refreshing: Boolean = false
 ) {
     private val displayableOrders = result?.map { it.orders.filter { order -> order.hasDisplayableProducts } }
     private val personalOrders = displayableOrders?.map { it.ordersBy(checkNotNull(scope).employeeId) }
@@ -85,16 +86,20 @@ internal class OrderHistoryViewModel(
         val today = LocalDate.ofInstant(clock.instant(), tableZone)
         if (!refresh && current.scope == scope && current.day == today) return
         request?.cancel()
-        if (current.scope != scope || current.day != today) state.value = OrderHistoryUiState(scope, day = today)
+        if (current.scope != scope || current.day != today) state.value = OrderHistoryUiState(scope, day = today, refreshing = true)
+        else state.value = current.copy(refreshing = true)
         request = viewModelScope.launch {
             try {
                 val source = repository(scope.storageId)
+                scope.locationId?.let { source.refreshOrders(it, refresh) }
                 orderDays(clock).flatMapLatest { date ->
                     // observe ejecuta esta proyección en IO; la UI recibe las listas preparadas.
                     source.observe { service ->
                         OrderHistoryUiState(
                             scope,
-                            Result.success(OrderOverview(service.operationalOrders(OrderHistoryWindow(date)), service.serviceTables(), service.localTableAttentions())),
+                            Result.success(OrderOverview(service.copy(visits = service.visits.filter {
+                                scope.locationId == null || it.locationId == scope.locationId
+                            }).operationalOrders(OrderHistoryWindow(date)), service.serviceTables(), service.localTableAttentions())),
                             day = date
                         )
                     }

@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.wfappops.carta.CartaCollection
+import com.example.wfappops.carta.validateOrderLine
 import com.example.wfappops.orders.data.OrderRepository
 import com.example.wfappops.orders.model.DispatchLineKey
 import com.example.wfappops.orders.model.KitchenItemStatus
@@ -11,6 +12,8 @@ import com.example.wfappops.orders.model.OrderLine
 import com.example.wfappops.orders.model.TableService
 import com.example.wfappops.orders.model.TableVisit
 import com.example.wfappops.orders.model.TableWorker
+import com.example.wfappops.orders.model.advanceLocalKitchenStatus
+import com.example.wfappops.BuildConfig
 import com.example.wfappops.tables.TableAttention
 import com.example.wfappops.tables.TableReference
 import com.example.wfappops.tables.localTableAttentions
@@ -40,7 +43,16 @@ internal data class OrderUiState(
     val tablesLoading: Boolean = false,
     val attentions: Map<TableReference, TableAttention> = emptyMap(),
     val openingSelectedTable: Boolean = false,
-    val workerName: String = ""
+    val workerName: String = "",
+    val menuLocations: List<com.example.wfappops.auth.model.TeamLocation> = emptyList(),
+    val menuLocationId: String? = null,
+    val menuLoading: Boolean = false,
+    val productSelectionChanged: Boolean = false,
+    val sessionExpired: Boolean = false,
+    val canSend: Boolean = false,
+    val canCancelOrder: Boolean = false,
+    val operationMessage: String? = null,
+    val canSimulateLineStatus: Boolean = false
 )
 
 internal class OrderViewModel(
@@ -55,7 +67,8 @@ internal class OrderViewModel(
     private val mutableUiState = MutableStateFlow(
         OrderUiState(
             table = savedState.get<Int>(TABLE) ?: initialTable,
-            canUpdateLines = repository.manual,
+            canUpdateLines = false,
+            canSimulateLineStatus = BuildConfig.DEBUG,
             workerName = worker.name,
             openingSelectedTable = initialRemoteTableId != null && savedState.get<Int>(TABLE) == null &&
                 initialTable == null && savedState.get<Boolean>(REMOTE_TABLE_OPENED) != true
@@ -67,10 +80,13 @@ internal class OrderViewModel(
     private var catalogRequest: Job? = null
     private var tablesRequest: Job? = null
     private var visitId: String? = savedState.get<String>(VISIT_ID) ?: initialVisitId
+    private val preferredMenuLocation = initialLocationId
+    private var catalogLocationId: String? = null
+    private var catalogCheckedAt = 0L
+    private var menuRequestVersion = 0
 
     init {
         reload()
-        loadCatalog()
         if (initialTable == null || uiState.value.table == null) loadTables(initialLocationId)
         if (initialRemoteTableId != null && savedState.get<Boolean>(REMOTE_TABLE_OPENED) != true) {
             viewModelScope.launch {
@@ -88,22 +104,67 @@ internal class OrderViewModel(
     }
 
     fun reload() = runOperation { current ->
+        val permissions = repository.permissions()
+        val source = current.copy(canCancelOrder = "pos.orders.cancel" in permissions,
+            canSend = "pos.orders.send_to_kitchen" in permissions &&
+                ("pos.orders.create" in permissions || "pos.orders.update" in permissions))
         if (current.table == null && visitId == null) {
-            val service = repository.update { it.createOrder(worker) }
+            val service = repository.update { it.createOrder(worker, apiBacked = true) }
             val visit = service.visits.last()
             visitId = visit.id
             savedState[TABLE] = visit.table
             savedState[VISIT_ID] = visit.id
-            current.copy(table = visit.table).withVisits(service, visit.id)
-        } else repository.read { current.withVisits(it, visitId) }
+            source.copy(table = visit.table).withVisits(service, visit.id)
+        } else {
+            visitId?.let { id -> repository.read { it.visits.firstOrNull { visit -> visit.id == id } }?.remoteOrderId?.let { repository.refreshOrder(id) } }
+            repository.read { source.withVisits(it, visitId) }
+        }
     }
 
-    fun loadCatalog() {
-        if (catalogRequest?.isActive == true) return
-        if (catalog.value?.isSuccess == true) return
-        if (catalog.value?.isFailure == true) catalog.value = null
+    fun loadCatalog() = loadMenu(false)
+    fun refreshCatalog() = loadMenu(true)
+
+    fun selectMenuLocation(locationId: String) {
+        if (uiState.value.busy || uiState.value.visit?.hasRecordedProducts == true || uiState.value.visit?.remoteTableId != null) return
+        savedState[MENU_LOCATION] = locationId
+        loadMenu(true, locationId)
+    }
+
+    private fun loadMenu(refresh: Boolean, requestedLocation: String? = null) {
+        val requested = requestedLocation ?: uiState.value.visit?.locationId ?: savedState.get<String>(MENU_LOCATION)
+            ?: preferredMenuLocation ?: uiState.value.menuLocationId
+        if (catalogRequest?.isActive == true && (requested == null || requested == catalogLocationId)) return
+        if (!refresh && requested == catalogLocationId && catalog.value?.isSuccess == true &&
+            android.os.SystemClock.elapsedRealtime() - catalogCheckedAt in 0 until 60_000) return
+        catalogRequest?.cancel()
+        val requestVersion = ++menuRequestVersion
+        if (requested != catalogLocationId || catalog.value?.isFailure == true) catalog.value = null
+        catalogLocationId = requested
         catalogRequest = viewModelScope.launch {
-            repository.observeCatalog().collect { catalog.value = it }
+            mutableUiState.update { it.copy(menuLoading = true) }
+            try {
+                val locations = repository.menuLocations()
+                val selected = locations.firstOrNull { it.id == requested } ?: if (requested == null) locations.firstOrNull() else null
+                checkNotNull(selected)
+                catalogLocationId = selected.id
+                mutableUiState.update { it.copy(menuLocations = locations, menuLocationId = selected.id) }
+                val menu = repository.loadMenu(selected.id, refresh)
+                if (requestVersion == menuRequestVersion) {
+                    catalogCheckedAt = android.os.SystemClock.elapsedRealtime()
+                    catalog.value = Result.success(menu.collections)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (requestVersion == menuRequestVersion) {
+                    catalog.value = Result.failure(error)
+                    if ((error as? com.example.wfappops.auth.data.AuthApiException)?.status == 401) {
+                        mutableUiState.update { it.copy(sessionExpired = true) }
+                    }
+                }
+            } finally {
+                if (requestVersion == menuRequestVersion) mutableUiState.update { it.copy(menuLoading = false) }
+            }
         }
     }
 
@@ -127,7 +188,7 @@ internal class OrderViewModel(
             mutableUiState.update { it.copy(tablesLoading = true) }
             try {
                 val locations = repository.tableLocations()
-                val selected = locations.firstOrNull { it.id == (locationId ?: uiState.value.selectedLocationId) }
+                val selected = locations.firstOrNull { it.id == (locationId ?: uiState.value.visit?.locationId ?: uiState.value.menuLocationId ?: uiState.value.selectedLocationId) }
                     ?: locations.firstOrNull()
                 mutableUiState.update {
                     it.copy(
@@ -136,7 +197,9 @@ internal class OrderViewModel(
                     )
                 }
                 val layout = selected?.let { repository.loadTables(it.id, refresh) }
-                mutableUiState.update { it.copy(apiTables = layout?.let(Result.Companion::success), tablesLoading = false) }
+                selected?.let { repository.refreshOrders(it.id, refresh) }
+                val attentions = repository.read { it.localTableAttentions() }
+                mutableUiState.update { it.copy(apiTables = layout?.let(Result.Companion::success), tablesLoading = false, attentions = attentions) }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -149,6 +212,18 @@ internal class OrderViewModel(
         check(!current.tablesLoading)
         val layout = checkNotNull(current.apiTables?.getOrNull())
         val selected = layout.areas.flatMap { it.tables }.first { it.id == tableId }
+        repository.refreshOrders(layout.location.id)
+        val occupied = repository.read { service -> service.visits.firstOrNull {
+            !it.closed && it.locationId == layout.location.id && it.remoteTableId == tableId && it.remoteOrderId != null
+        } }
+        if (occupied != null) {
+            check(current.visit?.draft.isNullOrEmpty()) { "La mesa tiene una comanda abierta. Conserva tu borrador y abre esa atención para agregar productos." }
+            repository.refreshOrder(occupied.id)
+            visitId = occupied.id
+            savedState[TABLE] = occupied.table
+            savedState[VISIT_ID] = occupied.id
+            return@runOperation repository.read { current.copy(table = occupied.table).withVisits(it, occupied.id) }
+        }
         val service = repository.update {
             val currentVisit = current.visit
             if (currentVisit != null) it.assignApiTable(currentVisit.id, layout.location, selected)
@@ -161,10 +236,29 @@ internal class OrderViewModel(
         current.copy(table = visit.table).withVisits(service, visit.id)
     }
 
-    fun addProduct(line: OrderLine) = editVisit(
-        change = { service, visit -> service.add(visit.id, line, Instant.now(), worker) },
-        onSaved = { it.copy(addedProducts = it.addedProducts + 1) }
-    )
+    fun addProduct(line: OrderLine) {
+        val visit = uiState.value.visit?.takeUnless { it.closed } ?: return
+        if (uiState.value.menuLoading) return
+        runOperation { current ->
+            val menu = repository.loadMenu(checkNotNull(line.locationId))
+            val confirmed = try { menu.validateOrderLine(line) } catch (error: IllegalArgumentException) {
+                catalog.value = Result.success(menu.collections)
+                mutableUiState.update { it.copy(productSelectionChanged = true) }
+                throw error
+            } catch (error: IllegalStateException) {
+                catalog.value = Result.success(menu.collections)
+                mutableUiState.update { it.copy(productSelectionChanged = true) }
+                throw error
+            }
+            val service = repository.update { stored ->
+                val active = checkNotNull(stored.openVisit(visit.table))
+                check(active.id == visit.id)
+                require((active.draft + active.dispatches.flatMap { it.lines }).all { it.currencyCode == confirmed.currencyCode })
+                stored.bindMenuLocation(visit.id, menu.location).add(visit.id, confirmed, Instant.now(), worker)
+            }
+            current.withVisits(service, visit.id).copy(addedProducts = current.addedProducts + 1)
+        }
+    }
 
     fun changeQuantity(line: OrderLine, delta: Int) = editVisit(
         change = { service, visit -> service.adjustDraft(visit.id, line, delta) }
@@ -181,36 +275,69 @@ internal class OrderViewModel(
     )
 
     fun sendToCashier() {
-        if (uiState.value.visit?.canSendToCashier != true) return
-        editVisit(change = { service, visit -> service.sendToCashier(visit.id, worker, Instant.now()) })
+        mutableUiState.update { it.copy(operationMessage = "El envío a caja todavía no tiene un endpoint integrado.", storageError = true) }
     }
 
     fun sendOrder() {
         val current = uiState.value
-        val draft = current.visit?.draft.orEmpty()
-        if (current.busy || draft.isEmpty()) return
-        if (repository.manual) {
-            editVisit(change = { service, visit ->
-                check(visit.draft == draft)
-                service.sendLocally(visit.id, worker, Instant.now())
-            })
-        } else mutableUiState.update { it.copy(kitchenUnavailable = true) }
+        sendSelected(current.visit?.draft.orEmpty().mapIndexed { index, line -> index to line.quantity }.toMap())
+    }
+
+    fun sendSelected(quantities: Map<Int, Int>) {
+        val visit = uiState.value.visit?.takeUnless { it.closed } ?: return
+        if (uiState.value.busy || !uiState.value.canSend) return
+        runOperation { current ->
+            repository.send(visit.id, quantities, visit.draft)
+            repository.read { current.withVisits(it, visit.id) }
+        }
+    }
+
+    fun cancelOrder(expectedVersion: Int, reason: String) {
+        val visit = uiState.value.visit ?: return
+        runOperation { current ->
+            repository.cancel(visit.id, expectedVersion, reason)
+            repository.read { current.withVisits(it, visit.id) }
+        }
+    }
+
+    fun refreshRemote() { if (uiState.value.visit?.remoteOrderId != null && !uiState.value.busy) reload() }
+
+    fun recoverDraft() {
+        val previous = uiState.value.visit?.takeIf { it.closed && it.draft.isNotEmpty() && it.pendingSend == null } ?: return
+        runOperation { current ->
+            val service = repository.update { source ->
+                val saved = source.visits.first { it.id == previous.id }
+                check(saved.draft == previous.draft)
+                val created = source.createOrder(worker, apiBacked = true)
+                val next = created.visits.last()
+                created.copy(visits = created.visits.map {
+                    when (it.id) {
+                        saved.id -> it.copy(draft = emptyList())
+                        next.id -> it.copy(draft = saved.draft, locationId = saved.locationId,
+                            locationName = saved.locationName, comment = saved.comment)
+                        else -> it
+                    }
+                })
+            }
+            val next = service.visits.last()
+            visitId = next.id; savedState[VISIT_ID] = next.id; savedState[TABLE] = next.table
+            current.copy(table = next.table).withVisits(service, next.id)
+        }
     }
 
     fun dismissKitchenUnavailable() = mutableUiState.update { it.copy(kitchenUnavailable = false) }
 
     fun advanceLine(dispatchIndex: Int, lineIndex: Int, expected: KitchenItemStatus) {
-        if (!repository.manual) return
-        editVisit(change = { service, visit ->
-            service.advanceOrderLine(DispatchLineKey(visit.id, dispatchIndex, lineIndex), expected, Instant.now())
-        })
+        if (!BuildConfig.DEBUG || !uiState.value.canSimulateLineStatus) return
+        val visit = uiState.value.visit?.takeUnless { it.closed } ?: return
+        val line = visit.dispatches.getOrNull(dispatchIndex)?.lines?.getOrNull(lineIndex) ?: return
+        if (line.dispatchStatus != expected) return
+        editVisit({ service, _ -> service.advanceLocalKitchenStatus(
+            DispatchLineKey(visit.id, dispatchIndex, lineIndex), line, visit.remoteVersion, Instant.now()) })
     }
 
     fun cancelLines(dispatchIndex: Int, lineIndices: Set<Int>) {
-        if (!repository.manual || lineIndices.isEmpty()) return
-        editVisit(change = { service, visit ->
-            service.cancelLocalLines(visit.id, dispatchIndex, lineIndices, worker, Instant.now())
-        })
+        mutableUiState.update { it.copy(operationMessage = "La anulación parcial todavía no tiene un endpoint integrado.", storageError = true) }
     }
 
     private fun editVisit(
@@ -231,20 +358,36 @@ internal class OrderViewModel(
     private fun runOperation(operation: suspend (OrderUiState) -> OrderUiState) {
         val current = uiState.value
         if (current.busy) return
-        mutableUiState.value = current.copy(busy = true, storageError = false)
+        mutableUiState.value = current.copy(busy = true, storageError = false, productSelectionChanged = false, operationMessage = null)
         viewModelScope.launch {
             try {
                 val updated = operation(current)
                 mutableUiState.update { latest -> updated.copy(
-                    busy = false, storageError = false,
+                    busy = false, storageError = false, operationMessage = null,
                     locations = latest.locations, selectedLocationId = latest.selectedLocationId,
                     apiTables = latest.apiTables, tablesLoading = latest.tablesLoading,
+                    menuLocations = latest.menuLocations, menuLocationId = latest.menuLocationId,
+                    menuLoading = latest.menuLoading, sessionExpired = latest.sessionExpired,
                     openingSelectedTable = latest.openingSelectedTable && updated.visit?.remoteTableId == null
                 ) }
+                val boundLocation = updated.visit?.locationId
+                if (updated.visit?.closed == false && (catalog.value == null || boundLocation != null && boundLocation != catalogLocationId)) loadCatalog()
             } catch (error: CancellationException) {
                 throw error
-            } catch (_: Exception) {
-                mutableUiState.update { it.copy(busy = false, storageError = true, openingSelectedTable = false) }
+            } catch (error: Exception) {
+                val apiError = error as? com.example.wfappops.auth.data.AuthApiException
+                val cached = runCatching { repository.read { service -> uiState.value.withVisits(service, visitId) } }.getOrNull()
+                val message = when (apiError?.code) {
+                    "pos.stale_version" -> "La comanda cambió. Revisa su contenido actualizado antes de volver a anular."
+                    "pos.prices_changed" -> "Los precios cambiaron. Actualiza Carta y revisa los productos del borrador antes de enviar."
+                    "pos.table_occupied" -> "La mesa ya tiene una comanda abierta. Tu borrador se conserva."
+                    "pos.order_not_open" -> "La comanda ya no está abierta. Tu borrador se conserva."
+                    else -> apiError?.serverMessage ?: apiError?.fieldErrors?.values?.firstOrNull()
+                        ?: error.message?.takeIf { error is IllegalStateException || error is IllegalArgumentException }
+                }
+                mutableUiState.update { (cached ?: it).copy(busy = false, storageError = true, operationMessage = message, openingSelectedTable = false,
+                    sessionExpired = it.sessionExpired || apiError?.status == 401) }
+                if (apiError?.code == "pos.prices_changed") loadMenu(true)
             }
         }
     }
@@ -259,5 +402,6 @@ internal class OrderViewModel(
         const val TABLE = "table"
         const val VISIT_ID = "visit-id"
         const val REMOTE_TABLE_OPENED = "remote-table-opened"
+        const val MENU_LOCATION = "menu-location"
     }
 }

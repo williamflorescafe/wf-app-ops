@@ -24,8 +24,11 @@ class ReadyNotificationFlowTest {
         assumeTrue("Android debe permitir notificaciones para comprobar la publicación", notifier.enabled())
         val business = "notice-test-${UUID.randomUUID()}"
         val recipient = ReadyNotificationRecipient(business, "test-worker", "Prueba")
+        val preferences = app.getSharedPreferences("ready-product-notifications", 0)
+        val previousRecipient = preferences.getString("active-recipient", null)
         val previousAccess = ActiveOpsAccess.current
         ActiveOpsAccess.current = OpsAccess(business)
+        notifier.selectRecipient(recipient)
         try {
             val worker = TableWorker(recipient.employeeId, recipient.name)
             val repository = OrderRepository(app, business, localDraftEmployeeId = worker.id)
@@ -47,17 +50,25 @@ class ReadyNotificationFlowTest {
             val posted = manager.activeNotifications.single { it.tag == recipient.tag }
             notifier.sync(recipient, notices)
             assertEquals(posted.postTime, manager.activeNotifications.single { it.tag == recipient.tag }.postTime)
+            val history = NotificationHistoryStore(app, recipient)
+            assertEquals(1, history.read().entries.size)
+            val reminderAt = history.read().firstSeen.values.single().plusSeconds(300)
+            notifier.sync(recipient, notices, reminderAt)
+            assertEquals(2, history.read().entries.size)
+            assertEquals(LocalNotificationKind.SERVE_REMINDER, history.read().entries.last().kind)
             repository.update { it.advanceOrderLine(key, KitchenItemStatus.READY, Instant.now()) }
             val served = readyProductNotices(app, recipient).first()
             assertTrue(served.isEmpty())
             notifier.sync(recipient, served)
+            assertEquals(2, NotificationHistoryStore(app, recipient).read().entries.size)
             withTimeout(5000) {
                 while (manager.activeNotifications.any { it.tag == recipient.tag }) delay(50)
             }
         } finally {
             ActiveOpsAccess.current = previousAccess
             manager.activeNotifications.filter { it.tag == recipient.tag }.forEach { manager.cancel(it.tag, it.id) }
-            app.getSharedPreferences("ready-product-notifications", 0).edit().remove(recipient.tag).commit()
+            preferences.edit().remove(recipient.tag).remove("posted/${recipient.tag}")
+                .putString("active-recipient", previousRecipient).commit()
             app.noBackupFilesDir.listFiles().orEmpty().filter { it.name.contains(business) }.forEach { it.delete() }
         }
     }

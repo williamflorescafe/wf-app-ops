@@ -28,6 +28,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -51,6 +52,7 @@ import com.example.wfappops.R
 import com.example.wfappops.orders.model.OrderLine
 import com.example.wfappops.ui.components.WfButton
 import com.example.wfappops.ui.components.WfButtonStyle
+import androidx.compose.foundation.selection.selectable
 import com.example.wfappops.ui.theme.WfSize
 import com.example.wfappops.ui.theme.WfThemeExtras
 import kotlinx.coroutines.launch
@@ -70,24 +72,33 @@ internal fun ProductDetail(
     onAdd: (OrderLine) -> Unit,
     forOrder: Boolean = false
 ) {
-    val groups = product.modifierGroups
-    var selections by rememberSaveable(stateSaver = selectionsSaver) {
+    var variantId by rememberSaveable(product.id) {
+        mutableStateOf(product.variants.singleOrNull()?.id)
+    }
+    val variant = product.variants.firstOrNull { it.id == variantId }
+    val groups = if (product.locationId == null || variant != null) product.groupsFor(variant?.id) else emptyList()
+    var selections by rememberSaveable(product.id, variantId, groups, stateSaver = selectionsSaver) {
         mutableStateOf(groups.associate { it.id to it.defaults() })
     }
-    var activeStep by rememberSaveable { mutableIntStateOf(0) }
+    var activeStep by rememberSaveable(product.id, variantId) { mutableIntStateOf(0) }
     var quantity by rememberSaveable { mutableIntStateOf(1) }
     var note by rememberSaveable(product.id) { mutableStateOf("") }
     val selected = groups.associate { it.id to it.selectedOptions(selections[it.id].orEmpty()) }
-    val isReady = groups.all { selected.getValue(it.id).size >= it.minSelections }
-    val unitPrice = product.priceInCents + selected.values.sumOf { options -> options.sumOf { it.priceDeltaInCents } }
-    val total = formatCartaPrice(unitPrice * quantity)
+    val selectedCurrency = variant?.currencyCode ?: product.currencyCode
+    val unitPrice = runCatching {
+        selected.values.flatten().fold(variant?.priceMinor ?: product.priceInCents) { price, option -> Math.addExact(price, option.priceDeltaInCents) }
+    }.getOrNull()
+    val isReady = product.canOrder && (product.locationId == null || variant?.available == true) &&
+        unitPrice != null && unitPrice >= 0 && groups.all { selected.getValue(it.id).size in it.minSelections..it.maxSelections }
+    val total = formatCartaPrice((unitPrice ?: 0) * quantity, selectedCurrency)
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
     val addProduct = {
-        val options = groups.flatMap { group -> selected.getValue(group.id).map { it.label } }
         if (forOrder) focus.clearFocus()
-        onAdd(OrderLine(product.name, if (forOrder) 1 else quantity, unitPrice, options, note.trim().ifEmpty { null }))
+        if (isReady && !adding) onAdd(product.orderLine(variantId,
+            groups.associate { it.id to selected.getValue(it.id).map { option -> option.id } },
+            if (forOrder) 1 else quantity, note))
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -95,7 +106,24 @@ internal fun ProductDetail(
             Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
                 if (!forOrder) DetailGallery(product)
                 Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 20.dp)) {
-                    ProductHeading(product, collection, if (forOrder) formatCartaPrice(unitPrice) else product.price)
+                    ProductHeading(product, collection, formatCartaPrice(unitPrice ?: product.priceInCents, selectedCurrency))
+                    if (product.variants.isNotEmpty()) {
+                        Text(stringResource(R.string.menu_variant), style = MaterialTheme.typography.titleSmall)
+                        product.variants.forEach { choice ->
+                            Row(Modifier.fillMaxWidth().selectable(choice.id == variantId,
+                                enabled = product.available && choice.available && !adding,
+                                onClick = { variantId = choice.id }).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = choice.id == variantId, onClick = { variantId = choice.id },
+                                    enabled = product.available && choice.available && !adding)
+                                Column(Modifier.weight(1f)) {
+                                    Text(choice.name, style = MaterialTheme.typography.bodyMedium)
+                                    if (!choice.available) Text(stringResource(R.string.menu_unavailable), style = MaterialTheme.typography.labelSmall)
+                                }
+                                Text(formatCartaPrice(choice.priceMinor, choice.currencyCode), style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                    }
+                    if (!product.canOrder) Text(stringResource(R.string.menu_unavailable), color = MaterialTheme.colorScheme.error)
                     if (forOrder) {
                         OrderNoteField(
                             value = note,
@@ -110,13 +138,19 @@ internal fun ProductDetail(
                         ProductCustomizer(
                             groups = groups,
                             selected = selected,
-                            activeStep = activeStep,
+                            activeStep = activeStep.coerceAtMost(groups.lastIndex),
+                            currencyCode = selectedCurrency,
+                            interactionEnabled = !adding,
                             onStep = { activeStep = it },
                             onSelect = { option ->
-                                val group = groups[activeStep]
+                                val group = groups[activeStep.coerceAtMost(groups.lastIndex)]
                                 val updated = group.select(selected.getValue(group.id).map { it.id }, option)
                                 selections = selections + (group.id to updated)
                                 if (!group.multiple && activeStep < groups.lastIndex) activeStep++
+                            },
+                            onAdjust = { option, delta ->
+                                val group = groups[activeStep.coerceAtMost(groups.lastIndex)]
+                                selections = selections + (group.id to group.adjust(selected.getValue(group.id).map { it.id }, option, delta))
                             }
                         )
                     }

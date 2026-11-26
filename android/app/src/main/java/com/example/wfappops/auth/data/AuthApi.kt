@@ -140,6 +140,18 @@ internal class AuthApi(context: Context) {
         }
     }
 
+    fun menu(token: String, businessId: String, locationId: String): String {
+        require(Regex("[1-9][0-9]*").matches(locationId))
+        return request("GET", "ops/locations/$locationId/menu", token = token, businessId = businessId)
+    }
+
+    fun ordersRequest(token: String, businessId: String, path: String, method: String = "GET", body: JSONObject? = null): String {
+        val id = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+        require(Regex("ops/locations/[1-9][0-9]*/orders(?:/$id(?:/(?:rounds|cancel))?)?").matches(path))
+        require(method in setOf("GET", "POST"))
+        return request(method, path, body, token, businessId)
+    }
+
     private fun request(
         method: String,
         path: String,

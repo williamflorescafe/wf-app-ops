@@ -37,13 +37,11 @@ class LocalDraftFlowTest {
         ActiveOpsAccess.current = OpsAccess(businessId)
         try {
             val source = OrderRepository(app, businessId, localDraftEmployeeId = worker.id)
-            val catalog = source.observeCatalog().first().getOrThrow()
-            val product = catalog.flatMap { it.sections }.flatMap { it.products }.first()
             val remoteTable = AvailableTable("table-api-99999999999", "T-9", "Mesa terraza", 6)
             val visit = source.update {
                 it.openApiTable(TeamLocation("San Borja", "SB", "10"), remoteTable, worker)
             }.visits.single()
-            val line = OrderLine(product.name, 1, product.priceInCents)
+            val line = OrderLine("Producto de prueba aislada", 1, 1400)
             val start = Instant.parse("2026-11-24T21:30:00Z")
             val observer = OrderRepository(app, businessId, localDraftEmployeeId = worker.id)
             val observedAttention = async(start = CoroutineStart.UNDISPATCHED) {

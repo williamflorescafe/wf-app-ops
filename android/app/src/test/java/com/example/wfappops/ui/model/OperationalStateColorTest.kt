@@ -18,12 +18,22 @@ class OperationalStateColorTest {
         assertEquals(OperationalStateColor.GREEN, order(RegisteredOrderStatus.DELIVERED, KitchenItemStatus.DELIVERED).operationalStateColor())
     }
 
-    @Test fun readyPreparingAndDraftProductsRemainOrange() {
+    @Test fun onlyServedTurnsGreenAndUnsentDraftStaysGray() {
         assertEquals(OperationalStateColor.ORANGE, order(RegisteredOrderStatus.READY, KitchenItemStatus.READY).operationalStateColor())
+        assertEquals(OperationalStateColor.ORANGE, order(RegisteredOrderStatus.READY, KitchenItemStatus.READY, KitchenItemStatus.DELIVERED).operationalStateColor())
+        assertEquals(OperationalStateColor.ORANGE, order(RegisteredOrderStatus.READY, KitchenItemStatus.READY, KitchenItemStatus.SENT).operationalStateColor())
         assertEquals(OperationalStateColor.ORANGE, order(RegisteredOrderStatus.PREPARING, KitchenItemStatus.IN_PREPARATION).operationalStateColor())
-        assertEquals(OperationalStateColor.ORANGE, order(RegisteredOrderStatus.DRAFT).operationalStateColor())
+        assertEquals(OperationalStateColor.GRAY, order(RegisteredOrderStatus.DRAFT).operationalStateColor())
         val servedWithDraft = order(RegisteredOrderStatus.DELIVERED, KitchenItemStatus.DELIVERED).copy(hasDraftProducts = true)
-        assertEquals(OperationalStateColor.ORANGE, servedWithDraft.operationalStateColor())
+        assertEquals(OperationalStateColor.GREEN, servedWithDraft.operationalStateColor())
+    }
+
+    @Test fun servedItemsRemainGreenWithNewDraftButEmptyAndCanceledItemsDoNotQualify() {
+        val servedWithDraft = order(RegisteredOrderStatus.DRAFT, KitchenItemStatus.DELIVERED, KitchenItemStatus.CANCELED)
+            .copy(hasDraftProducts = true, draftProducts = listOf(DraftProductSummary("Nuevo producto", 2)))
+        assertEquals(OperationalStateColor.GREEN, servedWithDraft.operationalStateColor())
+        assertEquals(OperationalStateColor.ORANGE, order(RegisteredOrderStatus.OPEN).operationalStateColor())
+        assertEquals(OperationalStateColor.ORANGE, order(RegisteredOrderStatus.OPEN, KitchenItemStatus.CANCELED).operationalStateColor())
     }
 
     @Test fun servingAnOrderDoesNotReleaseItsTableButClosingDoes() {

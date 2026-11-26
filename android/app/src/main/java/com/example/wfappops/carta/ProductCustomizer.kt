@@ -22,6 +22,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -52,7 +53,10 @@ internal fun ProductCustomizer(
     selected: Map<String, List<CartaModifierOption>>,
     activeStep: Int,
     onStep: (Int) -> Unit,
-    onSelect: (CartaModifierOption) -> Unit
+    onSelect: (CartaModifierOption) -> Unit,
+    onAdjust: ((CartaModifierOption, Int) -> Unit)? = null,
+    currencyCode: String = "PEN",
+    interactionEnabled: Boolean = true
 ) {
     val scheme = MaterialTheme.colorScheme
     val group = groups[activeStep]
@@ -102,9 +106,23 @@ internal fun ProductCustomizer(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         options.forEach { option ->
                             val checked = option in choices
-                            val enabled = option.available && (!group.multiple || checked || choices.size < group.maxSelections)
-                            ModifierOptionTile(option, group.multiple, checked, enabled, Modifier.weight(1f)) {
-                                onSelect(option)
+                            val enabled = interactionEnabled && group.maxSelections > 0 && option.available && (!group.multiple || checked || choices.size < group.maxSelections)
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                ModifierOptionTile(option, group.multiple, checked, enabled, Modifier.fillMaxWidth(), currencyCode) {
+                                    onSelect(option)
+                                }
+                                if (group.allowsRepeat && group.maxSelections > 1 && onAdjust != null) {
+                                    val units = choices.count { it.id == option.id }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = { onAdjust(option, -1) }, enabled = interactionEnabled && option.available && units > 0) {
+                                            Icon(painterResource(R.drawable.ic_order_minus), stringResource(R.string.menu_remove_option, option.label))
+                                        }
+                                        Text(units.toString(), style = MaterialTheme.typography.labelLarge)
+                                        IconButton(onClick = { onAdjust(option, 1) }, enabled = interactionEnabled && option.available && choices.size < group.maxSelections) {
+                                            Icon(painterResource(R.drawable.ic_carta_add), stringResource(R.string.menu_add_option, option.label))
+                                        }
+                                    }
+                                }
                             }
                         }
                         repeat(columns - options.size) { Spacer(Modifier.weight(1f)) }
@@ -184,6 +202,7 @@ private fun ModifierOptionTile(
     checked: Boolean,
     enabled: Boolean,
     modifier: Modifier,
+    currencyCode: String,
     onSelect: () -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -209,7 +228,7 @@ private fun ModifierOptionTile(
             if (capacity.isNotEmpty()) {
                 Text(capacity.replace("ml", " ml"), color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
-            val price = formatCartaPrice(option.priceDeltaInCents)
+            val price = formatCartaPrice(option.priceDeltaInCents, currencyCode)
             Text(
                 if (option.priceDeltaInCents > 0) stringResource(R.string.carta_modifier_surcharge, price) else price,
                 style = MaterialTheme.typography.bodySmall,

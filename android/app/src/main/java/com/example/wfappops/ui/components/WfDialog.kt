@@ -26,6 +26,7 @@ internal fun WfDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     busy: Boolean = false,
+    confirmEnabled: Boolean = true,
     message: String? = null,
     confirmStyle: WfButtonStyle = WfButtonStyle.PRIMARY,
     dismissLabel: String? = stringResource(R.string.tables_cancel),
@@ -45,7 +46,7 @@ internal fun WfDialog(
                     if (destructive) R.drawable.ic_error else R.drawable.ic_order_bag
                 )
                 content()
-                WfButton(confirmLabel, onConfirm, style = confirmStyle, isLoading = busy, fullWidth = true)
+                WfButton(confirmLabel, onConfirm, style = confirmStyle, isLoading = busy, enabled = confirmEnabled && !busy, fullWidth = true)
                 if (dismissLabel != null) {
                     WfButton(dismissLabel, onDismiss, style = WfButtonStyle.OUTLINED, enabled = !busy, fullWidth = true)
                 }

@@ -79,7 +79,7 @@ internal fun WfBottomBar(
                     },
                     label = { Text(item.label, style = MaterialTheme.typography.labelMedium) },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = ColorTokens.Ink,
+                        selectedIconColor = ColorTokens.NavigationPrimary,
                         selectedTextColor = ColorTokens.NavigationPrimary,
                         indicatorColor = ColorTokens.NavigationIndicator,
                         unselectedIconColor = ColorTokens.NavigationMuted,

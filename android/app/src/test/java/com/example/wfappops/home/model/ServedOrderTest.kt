@@ -11,14 +11,14 @@ class ServedOrderTest {
         products = statuses.map { OrderProductSummary("Producto", 1, it) }
     )
 
-    @Test fun greenRequiresEveryValidProductToBeServedWithoutDrafts() {
+    @Test fun servedRequiresEverySentValidProductAndIgnoresNewDrafts() {
         assertFalse(order(KitchenItemStatus.READY).isFullyServed)
         assertFalse(order(KitchenItemStatus.DELIVERED, KitchenItemStatus.READY).isFullyServed)
         val served = order(KitchenItemStatus.DELIVERED, KitchenItemStatus.CANCELED)
         assertTrue(served.isFullyServed)
         assertTrue(served.copy(status = RegisteredOrderStatus.CLOSED).isFullyServed)
-        assertFalse(served.copy(hasDraftProducts = true).isFullyServed)
-        assertFalse(served.copy(draftProducts = listOf(DraftProductSummary("Pendiente", 1))).isFullyServed)
+        assertTrue(served.copy(hasDraftProducts = true).isFullyServed)
+        assertTrue(served.copy(draftProducts = listOf(DraftProductSummary("Pendiente", 1))).isFullyServed)
         assertFalse(order(KitchenItemStatus.CANCELED).isFullyServed)
         assertFalse(order().isFullyServed)
     }
