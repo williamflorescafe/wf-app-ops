@@ -35,7 +35,8 @@ internal data class WfBottomBarAction(
     val label: String,
     @param:DrawableRes val icon: Int,
     val onClick: () -> Unit,
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val modifier: Modifier = Modifier
 )
 
 /** Barra de WF Team adaptada a los recursos de Android y a la navegación de OPS. */
@@ -57,7 +58,7 @@ internal fun WfBottomBar(
                             onClick = centerAction.onClick,
                             enabled = centerAction.enabled,
                             shape = CircleShape,
-                            modifier = Modifier.size(56.dp).shadow(3.dp, CircleShape),
+                            modifier = centerAction.modifier.size(56.dp).shadow(3.dp, CircleShape),
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary

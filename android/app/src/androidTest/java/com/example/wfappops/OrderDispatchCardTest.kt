@@ -8,10 +8,9 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -90,18 +89,13 @@ class OrderDispatchCardTest {
         val state = mutableStateOf(OrderUiState(1, visit = visit, openTables = setOf(1)))
         var saved: String? = null
         compose.setContent { WfTheme { CreateOrderScreen(state.value, catalog = null,
-            onLoadCatalog = {}, onReload = {}, onOpenTable = {}, onAddProduct = {},
+            onLoadCatalog = {}, onReload = {}, onAddProduct = {},
             onChangeQuantity = { _, _ -> }, onSaveNote = { _, _ -> },
             onSaveComment = { saved = it; state.value = state.value.copy(visit = visit.copy(comment = it), savedComments = 1) },
             onSendToCashier = {}, onSendOrder = {}, onAdvanceLine = { _, _, _ -> }, onCancelLines = { _, _ -> },
             onDismissKitchenUnavailable = {}, onCancel = {}) } }
         compose.onNodeWithContentDescription(app.getString(R.string.order_comment_title)).assertDoesNotExist()
-        val unitsLabel = app.resources.getQuantityString(R.plurals.order_draft_units, 1, 1)
-        compose.onNodeWithText(unitsLabel).assertDoesNotExist()
-        compose.onNodeWithContentDescription(app.getString(R.string.order_collapse_dispatch, app.getString(R.string.order_draft_status))).performClick()
-        compose.onNodeWithText(unitsLabel).assertIsDisplayed()
-        compose.onNodeWithText("Producto de prueba").assertDoesNotExist()
-        compose.onNodeWithContentDescription(app.getString(R.string.order_expand_dispatch, app.getString(R.string.order_draft_status))).performClick()
+        compose.onNodeWithText("Producto de prueba").assertIsDisplayed()
         compose.onNodeWithContentDescription(app.getString(R.string.order_edit_draft_comment)).performClick()
         compose.onNode(hasSetTextAction()).performTextInput("Servir juntos")
         compose.onNodeWithText(app.getString(R.string.order_save)).performClick()
@@ -146,8 +140,6 @@ class OrderDispatchCardTest {
     fun selectingTheCardAndMarkingAProductKeepItExpanded() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val title = context.getString(R.string.order_dispatch, 1)
-        val collapse = context.getString(R.string.order_collapse_dispatch, title)
-        val expand = context.getString(R.string.order_expand_dispatch, title)
         val selected = mutableStateOf(false)
         val marked = mutableStateOf(emptySet<Int>())
         var advances = 0
@@ -176,9 +168,6 @@ class OrderDispatchCardTest {
             assertEquals(0, advances)
         }
         compose.onNodeWithText("Espresso").assertIsDisplayed().performClick().assertIsOn()
-        compose.onNodeWithContentDescription(collapse).performClick()
-        compose.onNodeWithText("Espresso").assertDoesNotExist()
-        compose.onNodeWithContentDescription(expand).performClick()
         compose.onNodeWithText("Espresso").assertIsDisplayed().assertIsOn()
     }
 
@@ -236,6 +225,7 @@ class OrderDispatchCardTest {
         compose.onNodeWithText(title).performTouchInput { longClick() }
         compose.onNodeWithText("Espresso").performClick().assertIsOn()
         compose.onNodeWithText(cancelSelection).performClick()
+        compose.onNodeWithText(context.getString(R.string.order_cancel_reason)).performTextInput("Cliente desistió")
         compose.onNode(hasText(cancelSelection) and hasAnyAncestor(isDialog())).performClick()
 
         compose.runOnIdle { assertEquals(0 to setOf(0), cancellation) }
@@ -247,7 +237,6 @@ class OrderDispatchCardTest {
     @Test
     fun cashierOpensPendingCardAndRequiresServiceBeforeConfirmation() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val title = context.getString(R.string.order_dispatch, 1)
         val cashier = context.getString(R.string.order_cashier_title)
         val send = context.getString(R.string.order_cashier_send)
         val line = OrderLine("Espresso", 1, 800, kitchenStatus = KitchenItemStatus.READY)
@@ -267,8 +256,7 @@ class OrderDispatchCardTest {
             onSendToCashier = { sentToCashier = true }
         )
 
-        compose.onNodeWithContentDescription(context.getString(R.string.order_collapse_dispatch, title)).performClick()
-        compose.onNodeWithText("Espresso").assertDoesNotExist()
+        compose.onNodeWithText("Espresso").assertIsDisplayed()
         compose.onNodeWithContentDescription(cashier).performClick()
         compose.onNodeWithText("Espresso").assertIsDisplayed()
         compose.onNodeWithText(send).assertDoesNotExist()
@@ -304,7 +292,6 @@ class OrderDispatchCardTest {
                     catalog = null,
                     onLoadCatalog = {},
                     onReload = {},
-                    onOpenTable = {},
                     onAddProduct = {},
                     onChangeQuantity = { _, _ -> },
                     onSaveNote = { _, _ -> },

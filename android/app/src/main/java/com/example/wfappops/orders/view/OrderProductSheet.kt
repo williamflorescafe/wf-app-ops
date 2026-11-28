@@ -1,8 +1,8 @@
 package com.example.wfappops.orders.view
 
+import com.example.wfappops.core.model.ApiException
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -42,7 +41,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,13 +68,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
 import com.example.wfappops.carta.orderLine
+import com.example.wfappops.carta.formatCartaPrice
 import com.example.wfappops.ui.components.WfDropdownField
 import com.example.wfappops.ui.components.WfRefreshContainer
 import com.example.wfappops.carta.CartaCollection
 import com.example.wfappops.carta.CartaPhoto
 import com.example.wfappops.carta.CartaProduct
-import com.example.wfappops.carta.ProductDetail
-import com.example.wfappops.carta.OrderNoteField
 import com.example.wfappops.orders.model.OrderLine
 import com.example.wfappops.ui.components.EmptyState
 import com.example.wfappops.ui.components.ErrorState
@@ -153,8 +151,8 @@ internal fun OrderProductSheet(
     }
     val scope = rememberCoroutineScope()
     val operationsInProgress by rememberUpdatedState(busy)
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
         confirmValueChange = { it != SheetValue.Hidden || !operationsInProgress }
     )
     val listState = rememberLazyListState()
@@ -177,27 +175,24 @@ internal fun OrderProductSheet(
             Modifier.fillMaxWidth().fillMaxHeight(if (selected == null && keyboardVisible) 1f else 0.85f)
         ) {
             if (selected != null) {
-                Column(Modifier.fillMaxSize().padding(horizontal = WfSpacing.lg)) {
-                    if (failed) Text(operationMessage ?: stringResource(errorMessage ?: R.string.cart_error), color = scheme.error)
-                    TextButton(
-                        onClick = { selectedId = null },
-                        modifier = Modifier.sizeIn(minWidth = WfSize.minTouchTarget, minHeight = WfSize.minTouchTarget),
-                        enabled = !busy
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.ic_chevron_right), contentDescription = null,
-                            modifier = Modifier.size(20.dp).rotate(180f)
-                        )
-                        Text(stringResource(R.string.order_back_to_products))
-                    }
-                    ProductDetail(
-                        product = selected.second,
-                        collection = selected.first,
-                        adding = busy || refreshing,
-                        onAdd = onAdd,
-                        forOrder = true
-                    )
+                val product = selected.second
+                var detailQuantity by rememberSaveable(product.id) { mutableIntStateOf(1) }
+                var detailNote by rememberSaveable(product.id) { mutableStateOf("") }
+                val variant = product.variants.singleOrNull { it.available }
+                val baseLine = remember(product, variant) {
+                    runCatching { product.orderLine(variant?.id, emptyMap()) }.getOrNull()
                 }
+                OrderProductForm(
+                    name = product.name, description = product.description,
+                    price = formatCartaPrice(baseLine?.unitPriceInCents ?: product.priceInCents, baseLine?.currencyCode ?: product.currencyCode),
+                    note = detailNote, onNote = { detailNote = it },
+                    quantity = detailQuantity, onQuantity = { detailQuantity = it },
+                    busy = busy || refreshing, enabled = baseLine != null,
+                    actionLabel = stringResource(R.string.order_add_action),
+                    error = if (failed) operationMessage ?: stringResource(errorMessage ?: R.string.cart_error)
+                        else if (baseLine == null) stringResource(R.string.order_product_configuration_required) else null,
+                    onAction = { baseLine?.let { onAdd(it.copy(quantity = detailQuantity, note = detailNote.trim().ifBlank { null })) } }
+                )
             } else {
                 val focus = LocalFocusManager.current
                 val closePanel = {
@@ -268,7 +263,7 @@ internal fun OrderProductSheet(
                             when {
                                 catalog == null -> item { CircularProgressIndicator() }
                                 catalog.isFailure -> item {
-                                    val error = catalog.exceptionOrNull() as? com.example.wfappops.auth.data.AuthApiException
+                                    val error = catalog.exceptionOrNull() as? com.example.wfappops.core.model.ApiException
                                     val fallback = when (error?.status) {
                                         403 -> when (error.code) {
                                             "client.menu_permission_missing" -> R.string.menu_permission_missing

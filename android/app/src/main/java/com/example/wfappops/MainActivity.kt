@@ -1,6 +1,8 @@
 package com.example.wfappops
 
+import com.example.wfappops.core.model.ApiException
 import android.graphics.Color
+import android.animation.ValueAnimator
 import android.os.Bundle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.activity.ComponentActivity
@@ -53,6 +55,7 @@ import com.example.wfappops.ui.components.EmptyState
 import com.example.wfappops.ui.components.OpsBottomBar
 import com.example.wfappops.ui.components.OpsScaffold
 import com.example.wfappops.ui.components.OpsTab
+import com.example.wfappops.ui.launch.OpsLaunchHost
 import com.example.wfappops.ui.theme.WfSpacing
 import com.example.wfappops.ui.theme.WfTheme
 
@@ -63,6 +66,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_WFAppOps)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
@@ -71,26 +75,35 @@ class MainActivity : ComponentActivity() {
         setContent {
             WfTheme {
                 val state by account.uiState.collectAsStateWithLifecycle()
+                var launching by remember { mutableStateOf(savedInstanceState == null && ValueAnimator.areAnimatorsEnabled()) }
                 SideEffect {
-                    WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars =
-                        state.restoring || state.signedIn
+                    val bars = WindowCompat.getInsetsController(window, window.decorView)
+                    bars.isAppearanceLightStatusBars = !launching && (state.restoring || state.signedIn)
+                    bars.isAppearanceLightNavigationBars = !launching
                 }
-                OpsRoot(state, account)
+                val loginRequired = when {
+                    state.signedIn -> false
+                    state.restoring -> null
+                    else -> true
+                }
+                OpsLaunchHost(launching, state.businessContext != null && !state.restoring, loginRequired, { launching = false }) { button ->
+                    OpsRoot(state, account, button, launching)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun OpsRoot(state: AccountUiState, account: AccountViewModel) {
+private fun OpsRoot(state: AccountUiState, account: AccountViewModel, modifier: Modifier, launching: Boolean) {
     val business = state.businessContext
     ReadyProductNotifications(business?.takeUnless { state.restoring }?.let {
         ReadyNotificationRecipient(it.businessId, it.employeeId, it.employeeName)
-    })
+    }, allowPermissionPrompt = !launching)
     if (business == null || state.restoring) {
         Surface(Modifier.fillMaxSize()) {
             AccountAccessScreen(state, account::updateEmail, account::updatePassword, account::login,
-                account::selectBusiness, account::retry, account::logout)
+                account::selectBusiness, account::retry, account::logout, launching)
         }
         return
     }
@@ -104,7 +117,7 @@ private fun OpsRoot(state: AccountUiState, account: AccountViewModel) {
         }
         val orders by history.uiState.collectAsStateWithLifecycle()
         LaunchedEffect(orders.result?.exceptionOrNull()) {
-            if ((orders.result?.exceptionOrNull() as? com.example.wfappops.auth.data.AuthApiException)?.status == 401) account.expireSession()
+            if ((orders.result?.exceptionOrNull() as? com.example.wfappops.core.model.ApiException)?.status == 401) account.expireSession()
         }
         val locationId = state.selectedLocationId ?: business.locations.firstOrNull()?.id
         val scope = OrderHistoryScope(business.businessId, worker.id, locationId)
@@ -125,7 +138,8 @@ private fun OpsRoot(state: AccountUiState, account: AccountViewModel) {
         OpsScaffold(bottomBar = {
             OpsBottomBar(
                 tab, onSelect = { if (!state.loading) tab = it },
-                onCreateOrder = { openOrder() }, createOrderEnabled = !state.loading
+                onCreateOrder = { openOrder() }, createOrderEnabled = !state.loading,
+                createButtonModifier = modifier
             )
         }) {
             Column(Modifier.fillMaxSize()) {
@@ -133,6 +147,7 @@ private fun OpsRoot(state: AccountUiState, account: AccountViewModel) {
                 Box(Modifier.weight(1f)) {
                     when (tab) {
                         OpsTab.HOME -> HomeScreen(
+                            refreshWarning = orders.refreshWarning,
                             employeeName = business.employeeName, canOpenOrder = !state.loading,
                             onCreateOrder = { openOrder() }, openOrders = orders.homeOrders(filter),
                             filter = filter, onFilter = { filter = it },
@@ -141,12 +156,13 @@ private fun OpsRoot(state: AccountUiState, account: AccountViewModel) {
                             onNotifications = { context.startActivity(com.example.wfappops.notifications.NotificationsActivity.intent(context, locationId)) }
                         )
                         OpsTab.ORDERS -> OrderHistoryScreen(
+                            refreshWarning = orders.refreshWarning,
                             orders = orders.orders(true), day = orders.day,
                             onRetry = { history.load(scope, true) },
                             canOpenOrder = !state.loading, onOpenOrder = { openOrder(it.table, it.visitId) }
                         )
                         OpsTab.TABLES -> OpsTablesScreen(state, attentions = orders.attentions,
-                            occupancyReady = orders.scope == scope && orders.result?.isSuccess == true,
+                            occupancyReady = orders.scope == scope && orders.result?.isSuccess == true && !orders.remoteRefreshFailed,
                             occupancyLoading = orders.scope != scope || orders.result == null,
                             onSelectTable = { locationId, tableId, attention ->
                                 if (attention is com.example.wfappops.tables.TableAttention.Occupied) {

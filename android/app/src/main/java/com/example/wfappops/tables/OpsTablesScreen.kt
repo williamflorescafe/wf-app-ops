@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
-import com.example.wfappops.auth.data.AuthApiException
+import com.example.wfappops.core.model.ApiException
 import com.example.wfappops.auth.viewmodel.AccountUiState
 import com.example.wfappops.ui.components.EmptyState
 import com.example.wfappops.ui.components.ErrorState
@@ -90,10 +90,10 @@ internal fun OpsTablesScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = WfSpacing.lg)
             )
         }
-        val apiError = result?.exceptionOrNull() as? AuthApiException
+        val apiError = result?.exceptionOrNull() as? ApiException
         val canRefresh = permitted && selected != null && apiError?.status !in listOf(403, 404, 409)
         WfRefreshContainer(
-            isRefreshing = state.tablesLoading,
+            isRefreshing = state.tablesLoading && (state.tablesUserRefreshing || layout == null),
             onRefresh = { if (!state.tablesLoading && selected != null) onLoad(selected.id, true) },
             enabled = canRefresh,
             modifier = Modifier.weight(1f).fillMaxWidth()
@@ -110,7 +110,7 @@ internal fun OpsTablesScreen(
                     result == null -> Unit
                     result.isFailure -> item(span = { GridItemSpan(maxLineSpan) }) {
                         val error = result.exceptionOrNull()
-                        val apiError = error as? AuthApiException
+                        val apiError = error as? ApiException
                         val fallback = when (apiError?.status) {
                             403 -> R.string.tables_permission_denied
                             404 -> R.string.tables_location_unavailable

@@ -89,9 +89,15 @@ internal class TableStore(context: Context, businessId: String) {
                 remoteStatus = visit.optionalText("remoteStatus"), remoteTotalMinor = visit.optionalLong("remoteTotalMinor"),
                 remoteUnitsCount = visit.optionalLong("remoteUnitsCount"), remoteDetailLoaded = visit.optBoolean("remoteDetailLoaded"),
                 businessDate = visit.optionalText("businessDate"), pendingSend = visit.optionalText("pendingSend"),
+                pendingCancellation = visit.optionalText("pendingCancellation"),
+                pendingPreparation = visit.optionalText("pendingPreparation"),
+                pendingClose = visit.optionalText("pendingClose"),
+                remoteFulfillment = visit.optJSONObject("remoteFulfillment")?.let { units ->
+                    units.keys().asSequence().associateWith { units.getJSONObject(it).toString() }
+                }.orEmpty(),
                 remoteCanceledAt = visit.optionalInstant("remoteCanceledAt"), remoteCancelReason = visit.optionalText("remoteCancelReason"),
                 localKitchenStatuses = visit.optJSONObject("localKitchenStatuses")?.let { states ->
-                    states.keys().asSequence().associateWith { com.example.wfappops.orders.model.LocalKitchenStatus.decode(states.getJSONObject(it)) }
+                    states.keys().asSequence().associateWith { readLocalKitchenStatus(states.getJSONObject(it)) }
                 }.orEmpty(),
                 remoteTableId = visit.optString("remoteTableId").takeUnless { visit.isNull("remoteTableId") },
                 locationId = visit.optString("locationId").takeUnless { visit.isNull("locationId") },
@@ -138,8 +144,12 @@ private fun TableVisit.toJson() = JSONObject()
     .put("apiBacked", apiBacked).put("remoteOrderId", remoteOrderId).put("remoteVersion", remoteVersion)
     .put("remoteStatus", remoteStatus).put("remoteTotalMinor", remoteTotalMinor).put("remoteUnitsCount", remoteUnitsCount)
     .put("remoteDetailLoaded", remoteDetailLoaded).put("businessDate", businessDate).put("pendingSend", pendingSend)
+    .put("pendingCancellation", pendingCancellation)
+    .put("pendingPreparation", pendingPreparation)
+    .put("pendingClose", pendingClose)
+    .put("remoteFulfillment", JSONObject().also { units -> remoteFulfillment.forEach { (id, payload) -> units.put(id, JSONObject(payload)) } })
     .put("remoteCanceledAt", remoteCanceledAt?.toEpochMilli()).put("remoteCancelReason", remoteCancelReason)
-    .put("localKitchenStatuses", JSONObject().also { states -> localKitchenStatuses.forEach { (key, state) -> states.put(key, state.encode()) } })
+    .put("localKitchenStatuses", JSONObject().also { states -> localKitchenStatuses.forEach { (key, state) -> states.put(key, state.toJson()) } })
     .put("remoteTableId", remoteTableId)
     .put("locationId", locationId)
     .put("tableName", tableName)

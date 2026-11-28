@@ -8,9 +8,12 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +21,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -59,7 +61,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -78,6 +79,11 @@ import com.example.wfappops.orders.model.KitchenItemStatus
 import com.example.wfappops.orders.model.OrderDispatch
 import com.example.wfappops.orders.model.OrderLine
 import com.example.wfappops.orders.model.TableVisit
+import com.example.wfappops.orders.model.canCancelUnitSelection
+import com.example.wfappops.orders.model.FulfillmentAction
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
 import com.example.wfappops.tables.tableActivityTime
 import com.example.wfappops.ui.components.WfButton
 import com.example.wfappops.ui.components.WfButtonStyle
@@ -148,7 +154,7 @@ internal fun OrderTableHeader(
                     modifier = Modifier.semantics { if (cashierBlocked) stateDescription = blockedLabel }
                 ) {
                     Icon(
-                        painterResource(WfIcons.Cashier), stringResource(R.string.order_cashier_title),
+                        painterResource(WfIcons.Cashier), stringResource(if (visit?.remoteOrderId != null) R.string.closure_title else R.string.order_cashier_title),
                         modifier = Modifier.alpha(if (cashierBlocked) 0.55f else 1f)
                     )
                 }
@@ -172,8 +178,8 @@ internal fun OrderTableHeader(
             val hasTable = visit?.remoteTableId != null || (visit != null && !visit.apiBacked)
             OrderHeaderField(
                 label = stringResource(R.string.order_table_label),
-                value = if (hasTable) visit?.tableName?.takeIf { it.isNotBlank() }
-                    ?: visit?.tableCode?.takeIf { it.isNotBlank() } ?: number?.toString().orEmpty()
+                value = if (hasTable) visit.tableName?.takeIf { it.isNotBlank() }
+                    ?: visit.tableCode?.takeIf { it.isNotBlank() } ?: number?.toString().orEmpty()
                     else stringResource(R.string.order_table_unassigned),
                 icon = R.drawable.ic_tables,
                 action = stringResource(if (hasTable) R.string.order_change_assignment else R.string.order_select_table),
@@ -251,27 +257,30 @@ internal fun rememberOrderPulse(): State<Float> =
 
 @Composable
 internal fun OrderDraftCard(
-    ordinal: Int,
     lines: List<OrderLine>,
     busy: Boolean,
-    expandRequest: Int,
     attentionRequest: Int,
     onEditNote: (OrderLine) -> Unit,
     onAdjust: (OrderLine, Int) -> Unit,
     onComment: (() -> Unit)? = null,
     comment: String? = null,
-    time: String? = null
+    time: String? = null,
+    selecting: Boolean = false,
+    markedLines: Set<Int> = emptySet(),
+    onToggleLine: (Int) -> Unit = {}
 ) {
-    val units = lines.sumOf { it.quantity.toLong() }
     OrderSection(
-        stringResource(R.string.order_draft_status), unitsCount = units,
-        draft = true, time = time, expandRequest = expandRequest, attentionRequest = attentionRequest,
+        stringResource(R.string.order_draft_status),
+        draft = true, time = time, attentionRequest = attentionRequest,
         onComment = onComment, comment = comment, commentEnabled = !busy,
         commentLabel = stringResource(R.string.order_edit_draft_comment)
     ) {
         lines.forEachIndexed { index, line ->
             if (index > 0) HorizontalDivider()
-            OrderLineContent(line, onAdjust = { onAdjust(line, it) }, busy = busy, onEditNote = { onEditNote(line) })
+            OrderLineContent(line, onAdjust = if (selecting) null else ({ onAdjust(line, it) }), busy = busy,
+                onEditNote = if (selecting) null else ({ onEditNote(line) }),
+                marked = index in markedLines, onToggleMark = if (selecting) ({ onToggleLine(index) }) else null,
+                selectingForSend = selecting)
         }
     }
 }
@@ -288,47 +297,63 @@ internal fun RegisteredDispatchCard(
     onAdvanceLine: ((Int, KitchenItemStatus) -> Unit)? = null,
     attentionRequest: Int = 0,
     selectionEnabled: Boolean = true,
-    statusActionsOnly: Boolean = false
+    statusActionsOnly: Boolean = false,
+    canAdvanceLine: (OrderLine) -> Boolean = { true },
+    operations: ((OrderLine) -> List<FulfillmentAction>)? = null,
+    onOperation: ((OrderLine, FulfillmentAction) -> Unit)? = null
 ) {
     val haptics = LocalHapticFeedback.current
-    val select = onSelect.takeIf { selectionEnabled && !busy && dispatch.canceledAt == null && dispatch.activeLines.isNotEmpty() }
+    val toggleLine = onToggleLine.takeIf { selectionEnabled && !busy && dispatch.canceledAt == null }
+    val allSelected = dispatch.lines.isNotEmpty() && dispatch.lines.indices.all { it in markedLines }
     var showComment by rememberSaveable(dispatch.remoteId, ordinal) { mutableStateOf(false) }
     OrderSection(
         stringResource(R.string.order_dispatch, ordinal),
-        unitsCount = dispatch.lines.sumOf { it.quantity.toLong() },
         draft = false, time = tableActivityTime.format(dispatch.sentAt),
-        selected = selected, served = dispatch.isDelivered, canceled = dispatch.isCanceled,
-        onSelect = select, attentionRequest = attentionRequest,
+        selected = allSelected, served = dispatch.isDelivered, canceled = dispatch.isCanceled,
+        attentionRequest = attentionRequest,
         onComment = { showComment = true }, comment = dispatch.note,
         commentLabel = stringResource(R.string.order_view_dispatch_comment, ordinal)
     ) {
         dispatch.lines.forEachIndexed { index, line ->
             if (index > 0) HorizontalDivider()
-            val canMark = dispatch.canceledAt == null && line.canCancel
+            val canMark = dispatch.canceledAt == null && !line.isCanceled
             val nextStatus = when (line.dispatchStatus) {
                 KitchenItemStatus.SENT -> R.string.order_preparing
                 KitchenItemStatus.IN_PREPARATION -> R.string.order_ready
                 else -> null
             }
-            val action = onAdvanceLine?.takeIf { !selected && dispatch.canceledAt == null }
+            val action = onAdvanceLine?.takeIf { !selected && dispatch.canceledAt == null && canAdvanceLine(line) }
             val advance = action?.takeIf { nextStatus != null }
             OrderLineContent(
                 line = if (dispatch.canceledAt == null) line else line.copy(kitchenStatus = KitchenItemStatus.CANCELED),
                 busy = busy,
                 statusActionsOnly = statusActionsOnly,
                 marked = canMark && index in markedLines,
-                onToggleMark = onToggleLine?.takeIf { canMark }?.let { toggle -> { toggle(index) } },
+                onToggleMark = toggleLine?.takeIf { canMark && selected }?.let { toggle -> { toggle(index) } },
                 onAdvance = advance?.let { action -> { action(index, line.dispatchStatus) } },
                 onDeliver = action?.takeIf { line.dispatchStatus == KitchenItemStatus.READY }
                     ?.let { deliver -> { deliver(index, KitchenItemStatus.READY) } },
                 advanceLabel = nextStatus?.let { stringResource(R.string.order_advance_status, line.product, stringResource(it)) },
-                onLongPress = select?.let { selectDispatch ->
+                showSelectionCheckbox = selected && canMark && toggleLine != null,
+                onLongPress = toggleLine?.takeIf { canMark }?.let { toggle ->
                     {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        selectDispatch()
+                        if (index !in markedLines) toggle(index)
                     }
                 }
             )
+            val choices = operations?.invoke(line).orEmpty()
+            if (!selected && !busy && choices.isNotEmpty() && onOperation != null) {
+                var menu by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(onClick = { menu = true }) { Text(stringResource(R.string.fulfillment_actions)) }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        choices.forEach { choice -> DropdownMenuItem(
+                            text = { Text(stringResource(choice.labelResource())) },
+                            onClick = { menu = false; onOperation(line, choice) }) }
+                    }
+                }
+            }
         }
     }
     if (showComment) WfDialog(
@@ -342,14 +367,12 @@ internal fun RegisteredDispatchCard(
 @Composable
 private fun OrderSection(
     title: String,
-    unitsCount: Long = 0,
     draft: Boolean,
     time: String? = null,
     selected: Boolean = false,
     served: Boolean = false,
     canceled: Boolean = false,
     onSelect: (() -> Unit)? = null,
-    expandRequest: Int = 0,
     attentionRequest: Int = 0,
     onComment: (() -> Unit)? = null,
     comment: String? = null,
@@ -359,12 +382,10 @@ private fun OrderSection(
 ) {
     val scheme = MaterialTheme.colorScheme
     val commentPreview = comment?.trim()?.takeIf { it.isNotEmpty() }
-    var expanded by rememberSaveable(expandRequest) { mutableStateOf(true) }
     val attention = remember { Animatable(0f) }
     LaunchedEffect(attentionRequest) {
         attention.snapTo(0f)
         if (attentionRequest > 0) {
-            expanded = true
             repeat(2) {
                 attention.animateTo(1f, tween(160))
                 attention.animateTo(0f, tween(300))
@@ -442,45 +463,12 @@ private fun OrderSection(
                         }
                     }
                     }
-                    val toggleLabel = stringResource(if (expanded) R.string.order_collapse_dispatch else R.string.order_expand_dispatch, title)
-                    Row(Modifier.sizeIn(minWidth = WfSize.minTouchTarget, minHeight = WfSize.minTouchTarget)
-                        .semantics { contentDescription = toggleLabel }
-                        .clickable(role = Role.Button, onClickLabel = toggleLabel) { expanded = !expanded }
-                        .padding(horizontal = WfSpacing.xs),
-                        horizontalArrangement = Arrangement.spacedBy(WfSpacing.xs, Alignment.End),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        if (time != null) Text(time, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End)
-                        Icon(painterResource(R.drawable.ic_chevron_right), null,
-                            Modifier.size(18.dp).rotate(if (expanded) -90f else 90f))
-                    }
+                    if (time != null) Text(time, modifier = Modifier.padding(end = WfSpacing.sm),
+                        style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End)
                 }
             }
-            if (expanded) Column(Modifier.padding(horizontal = WfSpacing.md, vertical = WfSpacing.sm),
+            Column(Modifier.padding(horizontal = WfSpacing.md, vertical = WfSpacing.sm),
                 verticalArrangement = Arrangement.spacedBy(WfSpacing.xs), content = content)
-            else Row(Modifier.fillMaxWidth().padding(horizontal = WfSpacing.md, vertical = WfSpacing.sm),
-                horizontalArrangement = Arrangement.End) {
-                Text(pluralStringResource(R.plurals.order_draft_units, if (unitsCount == 1L) 1 else 2, unitsCount),
-                    style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-@Composable
-private fun OrderColumns(editable: Boolean) {
-    val style = MaterialTheme.typography.labelMedium
-    val color = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(WfSpacing.sm)) {
-        Text(stringResource(R.string.order_product_column), Modifier.weight(1f), color = color, style = style)
-        Text(
-            stringResource(R.string.order_quantity_column), Modifier.width(if (editable) 112.dp else 38.dp),
-            textAlign = TextAlign.Center, color = color, style = style
-        )
-        Text(stringResource(R.string.order_price_column), Modifier.width(68.dp), textAlign = TextAlign.End, color = color, style = style)
-        if (!editable) {
-            Box(Modifier.width(KitchenStatusWidth), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.order_status_column), color = color, style = style)
-            }
         }
     }
 }
@@ -497,13 +485,16 @@ private fun OrderLineContent(
     onDeliver: (() -> Unit)? = null,
     advanceLabel: String? = null,
     onLongPress: (() -> Unit)? = null,
-    statusActionsOnly: Boolean = false
+    statusActionsOnly: Boolean = false,
+    selectingForSend: Boolean = false,
+    showSelectionCheckbox: Boolean = false
 ) {
     val scheme = MaterialTheme.colorScheme
     val interaction = when {
-        onToggleMark != null -> Modifier.toggleable(
-            value = marked, enabled = !busy, onValueChange = { onToggleMark() }
-        )
+        onToggleMark != null -> Modifier
+            .semantics { toggleableState = ToggleableState(marked) }
+            .combinedClickable(enabled = !busy, role = Role.Checkbox,
+                onClick = onToggleMark, onLongClick = onLongPress)
         onAdvance != null && !statusActionsOnly -> Modifier.combinedClickable(
             enabled = !busy,
             role = Role.Button,
@@ -511,16 +502,27 @@ private fun OrderLineContent(
             onClick = onAdvance,
             onLongClick = onLongPress
         )
+        onLongPress != null -> Modifier.combinedClickable(
+            enabled = !busy,
+            onClick = {},
+            onLongClick = onLongPress
+        )
         else -> Modifier
     }
     Surface(
         modifier = Modifier.fillMaxWidth().then(interaction),
-        color = if (marked) scheme.errorContainer else Color.Transparent,
-        contentColor = if (marked) scheme.onErrorContainer else LocalContentColor.current,
+        color = if (marked) { if (selectingForSend || showSelectionCheckbox) scheme.primaryContainer else scheme.errorContainer } else Color.Transparent,
+        contentColor = if (marked) { if (selectingForSend || showSelectionCheckbox) scheme.onPrimaryContainer else scheme.onErrorContainer } else LocalContentColor.current,
         shape = MaterialTheme.shapes.extraSmall
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(WfSpacing.xs)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WfSpacing.sm)) {
+        if (selectingForSend || showSelectionCheckbox) Box(Modifier.padding(start = WfSpacing.sm).size(26.dp), contentAlignment = Alignment.Center) {
+            if (marked) Icon(painterResource(R.drawable.ic_check_circle), null, Modifier.size(26.dp), tint = scheme.primary)
+            else Box(Modifier.size(24.dp).border(1.5.dp, scheme.primary, CircleShape))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(WfSpacing.xs)) {
             OrderLineDetails(line, busy, onAdjust, onEditNote,
+                hideStatus = selectingForSend,
                 onStatusClick = if (statusActionsOnly) onAdvance ?: onDeliver else null,
                 statusClickLabel = advanceLabel ?: if (onDeliver != null) stringResource(R.string.order_confirm_delivery, line.product) else null)
             if (onDeliver != null) {
@@ -535,6 +537,7 @@ private fun OrderLineContent(
                 )
             }
         }
+        }
     }
 }
 
@@ -545,7 +548,8 @@ private fun OrderLineDetails(
     onAdjust: ((Int) -> Unit)?,
     onEditNote: (() -> Unit)?,
     onStatusClick: (() -> Unit)? = null,
-    statusClickLabel: String? = null
+    statusClickLabel: String? = null,
+    hideStatus: Boolean = false
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(
@@ -569,16 +573,18 @@ private fun OrderLineDetails(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                val visibleOptions = line.options.filter { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+                val visibleOptions = line.options.map { it.trim() }.filter { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
                 if (visibleOptions.isNotEmpty()) {
                     Text(visibleOptions.joinToString(), style = MaterialTheme.typography.bodySmall)
                 }
             }
             if (onAdjust != null) {
-                Surface(
+                Box(Modifier.width(112.dp).height(WfSize.minTouchTarget), contentAlignment = Alignment.Center) {
+                    Surface(
+                    modifier = Modifier.fillMaxWidth().height(36.dp),
                     shape = CircleShape, border = BorderStroke(1.dp, scheme.primary),
                     color = scheme.surface, contentColor = scheme.primary
-                ) {
+                    ) {}
                     val quantityColors = IconButtonDefaults.iconButtonColors(contentColor = scheme.primary)
                     Row(Modifier.width(112.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
@@ -600,7 +606,7 @@ private fun OrderLineDetails(
                 Text(line.quantity.toString(), Modifier.width(38.dp), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelLarge)
             }
             Text(formatCartaPrice(line.totalInCents, line.currencyCode), Modifier.width(68.dp), textAlign = TextAlign.End, style = MaterialTheme.typography.labelLarge)
-            if (onAdjust == null) {
+            if (onAdjust == null && !hideStatus) {
                 val action = if (onStatusClick == null) Modifier else Modifier.heightIn(min = WfSize.minTouchTarget)
                     .clickable(enabled = !busy, onClickLabel = statusClickLabel, role = Role.Button, onClick = onStatusClick)
                 Column(Modifier.width(KitchenStatusWidth).then(action), horizontalAlignment = Alignment.CenterHorizontally,
@@ -635,7 +641,7 @@ internal fun KitchenStatusLabel(status: KitchenItemStatus) {
 }
 
 @Composable
-private fun StatusLabel(text: String, background: androidx.compose.ui.graphics.Color, foreground: androidx.compose.ui.graphics.Color) {
+private fun StatusLabel(text: String, background: Color, foreground: Color) {
     Surface(color = background, contentColor = foreground, shape = CircleShape) {
         Text(
             text,

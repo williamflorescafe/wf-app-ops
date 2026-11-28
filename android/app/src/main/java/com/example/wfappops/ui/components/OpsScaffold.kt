@@ -68,13 +68,15 @@ internal fun OpsScaffold(
 internal fun OpsBottomBar(
     selected: OpsTab?,
     onSelect: (OpsTab) -> Unit,
+    modifier: Modifier = Modifier,
     cart: CartShortcut? = null,
     onCreateOrder: (() -> Unit)? = null,
-    createOrderEnabled: Boolean = true
+    createOrderEnabled: Boolean = true,
+    createButtonModifier: Modifier = Modifier
 ) {
     val scheme = MaterialTheme.colorScheme
     val tabs = OpsTab.entries.filterNot { it == OpsTab.CARTA || it == OpsTab.KITCHEN }
-    Column(Modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth()) {
         if (cart != null) {
             Surface(color = scheme.surfaceContainerLowest) {
                 Box(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
@@ -87,7 +89,8 @@ internal fun OpsBottomBar(
             selectedIndex = tabs.indexOf(selected),
             onSelect = { onSelect(tabs[it]) },
             centerAction = onCreateOrder?.let { action ->
-                WfBottomBarAction(stringResource(R.string.home_create_order), R.drawable.ic_carta_add, action, createOrderEnabled)
+                WfBottomBarAction(stringResource(R.string.home_create_order), R.drawable.ic_carta_add, action,
+                    createOrderEnabled, createButtonModifier)
             }
         )
     }

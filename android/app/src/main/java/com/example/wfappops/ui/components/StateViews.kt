@@ -66,6 +66,7 @@ internal fun StateMessage(
     message: String?,
     tone: StatusTone,
     icon: Int,
+    showIcon: Boolean = true,
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
     val colors = WfThemeExtras.statusColors.of(tone)
@@ -74,7 +75,7 @@ internal fun StateMessage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(WfSpacing.md)
     ) {
-        Box(Modifier.size(64.dp).background(colors.container, CircleShape), contentAlignment = Alignment.Center) {
+        if (showIcon) Box(Modifier.size(64.dp).background(colors.container, CircleShape), contentAlignment = Alignment.Center) {
             Icon(painterResource(icon), contentDescription = null, tint = colors.content, modifier = Modifier.size(28.dp))
         }
         Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)

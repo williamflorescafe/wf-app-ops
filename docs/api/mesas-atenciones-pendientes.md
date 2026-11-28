@@ -4,6 +4,136 @@ Actualizado: 26 de noviembre de 2026. Las aclaraciones del 25 de noviembre reemp
 
 ## Contratos recibidos e integrados
 
+### Envío completo o selección dentro del borrador (27 de noviembre)
+
+El botón inferior muestra «Enviar» y el avión a su derecha. Su primer toque abre una confirmación compacta,
+sin bolsa ni lista de productos: «¿Deseas enviar todo lo que está en borrador?», con «Seleccionar» y «Enviar todo» en una fila.
+Enviar todo conserva las cantidades completas. Seleccionar cierra el modal y habilita la selección en la tarjeta del borrador.
+Cada fila tiene un checkbox circular visible, check al marcar y fondo verde; toda la fila es pulsable y expone semántica de checkbox.
+Durante la selección no hay controles de cantidad ni edición de notas que interfieran con el toque de fila.
+Los CTA inferiores son Cancelar y Enviar; Enviar se habilita al seleccionar entre 1 y 60 líneas.
+Cada producto seleccionado se envía con toda su cantidad actual y los demás quedan en caché.
+Cancelar o volver sale del modo sin modificar productos ni llamar al API. Las notas se conservan y los valores de presentación vacíos/`null` no se muestran.
+Se retiró `OrderSendSelection`, el modal anterior que combinaba productos y cantidades.
+El contrato de envío y su captura persistente mantienen los mismos UUID, validación y recuperación de reintentos.
+
+### Separación de funciones: OPS para el mozo (27 de noviembre)
+
+Esta corrección reemplaza la conexión automática de preparación descrita históricamente más abajo.
+El refresco de Inicio/Comandas solo consulta órdenes: se retiraron del repositorio de OPS el listado de estaciones,
+las unidades por estación, su sincronización automática y las cachés/reintentos de esas consultas.
+El mozo recibe preparación como información desde `orders/{order}/delivery-units`, al consultar el detalle.
+No solicita permisos de estación ni produce eventos de iniciar/listo/reabrir; esos eventos corresponden a cocina/barra.
+
+El menú y la etiqueta filtran siempre iniciar, listo y reabrir, incluso si una respuesta trae todas las capabilities en true.
+La etiqueta de preparación es informativa; el avance directo disponible es Listo → Servido cuando el servidor permite entregar.
+También se retira del flujo de usuario la simulación debug del avance de cocina.
+Se conservan entrega, sus correcciones, confirmaciones legacy, anulación y cierre según sus capacidades y permisos.
+El repositorio rechaza nuevas escrituras de cocina. Si existe una captura antigua de cocina pendiente,
+la acción de recuperación solo vuelve a leer el detalle/entrega para reconciliarla: nunca repite un POST de preparación.
+
+### Corrección de carga y edición local del 27 de noviembre
+
+Se confirmó un HTTP 403 real de `preparation-stations` que estaba propagándose como fallo de toda la lista.
+La observación de la caché ahora comienza en paralelo con el refresco remoto y continúa después de un fallo de red.
+La consulta complementaria de preparación no invalida comandas/ocupación ya verificadas; se muestra un aviso sin ocultar tarjetas.
+Si falla la consulta principal de órdenes, las tarjetas guardadas permanecen visibles con aviso y la ocupación deja de darse por verificada.
+Un 401 continúa invalidando el acceso: no se usa esta recuperación para eludir la autenticación.
+Se conservan los fallos de seguimiento durante su espera y se limita su reintento durante 60 segundos por ámbito autorizado.
+
+Agregar productos, ajustar cantidades y editar notas locales ya no activa el bloqueo visual global ni deshabilita todas las tarjetas.
+Las operaciones se serializan con un mutex y toman el estado más reciente al ejecutarse, conservando pulsaciones consecutivas.
+Las escrituras remotas mantienen su bloqueo y los borradores siguen persistiendo antes de mostrarse como guardados.
+
+### Escrituras de preparación, entrega y cierre: integradas el 27 de noviembre de 2026
+
+| Método y sufijo de /v1/ops/locations/{location}/orders/{order} | Acción |
+| --- | --- |
+| POST /preparation/start | Iniciar preparación. |
+| POST /preparation/ready | Marcar listo para recoger. |
+| POST /preparation/reopen | Corregir un registro de preparación. |
+| POST /delivery/deliver | Marcar servido. |
+| POST /delivery/undo | Corregir una entrega registrada. |
+| POST /delivery/confirm-legacy | Confirmar una entrega anterior observada. |
+| POST /delivery/revoke-legacy | Corregir una confirmación de entrega anterior. |
+| GET /closure-readiness | Comprobar si la atención se puede finalizar y leer sus bloqueos. |
+| POST /close | Finalizar la atención y liberar su reserva de mesa. No procesa pagos ni comprobantes. |
+
+Los productos con seguimiento real ofrecen únicamente acciones habilitadas por sus `capabilities` y referencias disponibles.
+El menú «Acciones» permite elegirlas; la etiqueta mantiene el avance directo y el botón de servido cuando corresponde.
+La versión enviada es la revisión de cada unidad, no la de la comanda. Una selección admite entre 1 y 100 unidades.
+Las correcciones exigen motivo de 3 a 1000 caracteres, confirmación explícita del error y los IDs reales del evento corregido.
+Reabrir usa `last_preparation_event_id`; deshacer entrega, `last_delivery_event_id`; revocar legacy,
+`legacy_confirmation.confirmation_operation_id`. No se generan IDs de eventos inexistentes.
+Confirmar legacy requiere motivo y `confirm_observed_delivery=true`; su versión nullable se conserva como JSON null.
+
+El UUID y el cuerpo de cada operación se guardan antes del POST. Un resultado incierto deja «Confirmar operación pendiente»
+o «Confirmar cierre pendiente»; repetir reutiliza exactamente la captura, también después de reiniciar.
+Se valida el recibo, se refrescan detalle y seguimiento de entrega, y se actualiza la caché de notificaciones por los estados reales.
+No se deduce el éxito de `changed` ni se interpretan estructuras no especificadas dentro de `units`.
+Un rechazo definitivo permite corregir; un 409 refresca el estado y exige otra decisión. Nunca se cambia silenciosamente la versión de una captura.
+Los permisos de escritura adicionales los decide el servidor; las capabilities son un control de disponibilidad, no una autorización alternativa.
+
+El ícono de cierre consulta readiness incluso si el frontend cree que aún hay pendientes. Muestra los bloqueos del servidor;
+solo `can_close=true` sin bloqueos habilita la confirmación, que requiere marcar «Confirmo que la atención terminó».
+El cierre envía `client_close_id`, la `order_version` de readiness y `confirm_attention_finished=true`.
+No declara libre la mesa hasta confirmar el resultado remoto. Los borradores adicionales permanecen locales.
+Esta sección reemplaza los pendientes históricos de iniciar/listo/servido/correcciones/cierre indicados más abajo.
+
+### Consultas de preparación y entrega: integradas el 27 de noviembre de 2026
+
+| Consulta | Uso en OPS |
+| --- | --- |
+| GET /v1/ops/locations/{location}/preparation-stations | Estaciones reales del local con nombre e indicador activo. |
+| GET /v1/ops/locations/{location}/preparation-stations/{station}/units | Unidades de cada estación y avance real de preparación y entrega. |
+| GET /v1/ops/locations/{location}/orders/{order}/delivery-units | Seguimiento de entrega de las unidades de una comanda al abrir/refrescar su detalle. |
+
+El refresco existente del listado consulta las estaciones y sus unidades, sin abrir el detalle de cada tarjeta.
+Las estaciones se reutilizan en memoria durante 60 segundos, con clave de negocio, empleado, sesión, membresía,
+versión de acceso y local. Los estados siguen el refresco de comandas y comparten su ventana de cinco segundos.
+El detalle consulta las unidades de entrega con `status=all`; preparación también usa `all` para conservar servidas y reabiertas.
+Los métodos de lectura de preparación admiten `work`, `ready` y `all`. Entrega admite `pending`, `delivered` y `all`.
+Las consultas de unidades usan límite 100 y recorren `next_cursor` hasta agotarlo, codificando el cursor opaco;
+se rechazan ciclos y resultados duplicados. No se presenta la primera página como una lista completa.
+La lista de estaciones sigue `next_cursor` si el servidor lo devuelve; su petición inicial no inventa filtros.
+
+Los datos de seguimiento se guardan en caché privada por cuenta y negocio, con IDs de unidad/comanda/ronda,
+estación, estados, versiones, horas, capacidades y eventos originales. Una versión de unidad más vieja no sustituye una nueva.
+`fulfillment.version` y `fulfillment_version` se conservan: se admite la versión exterior nula y se rechazan
+valores no nulos contradictorios. No se compara esa revisión con la versión de la comanda.
+Los errores HTTP no se convierten en listas vacías y se mantiene el manejo de 401 y acceso del repositorio.
+Los permisos adicionales de estos endpoints los decide backend; no se inventan nombres de permisos de preparación.
+
+La proyección usa `queued` → Enviado, `in_progress` → En preparación, `ready` → Listo y
+`delivery_status=delivered` → Servido. Un anulado conserva prioridad. Los estados desconocidos no generan un listo/servido ficticio.
+Los resúmenes `all_*` no pintan comandas por sí solos: una lista vacía puede traer esos booleanos en true.
+Cada unidad conocida del detalle se relaciona por ID de comanda, ronda y unidad. Una línea con estados mezclados
+se divide visualmente conservando cantidad total, precio original e IDs; la anulación selecciona la misma proyección.
+Estos estados alimentan Inicio, Comandas, detalle y la caché de notificaciones existentes.
+Las unidades de órdenes cuyo detalle todavía no está cargado se conservan, pero no se fabrican líneas con precios o autores ausentes:
+la proyección de productos y avisos requiere el detalle conocido. La consulta de estaciones no reemplaza ese contrato.
+
+Los datos remotos tienen prioridad sobre la simulación debug. Cuando una comanda ya tiene seguimiento real,
+sus etiquetas no avanzan estados de prueba. No se implementa una pantalla nueva de cocina ni escrituras inventadas.
+Faltan los contratos POST de iniciar, listo, reabrir, servir y deshacer entrega: `capabilities` describe qué se podría ejecutar,
+pero las tres rutas integradas aquí solo leen. Los envíos, precios, numeración, ocupación y cierre siguen siendo autoritativos del API.
+
+### Anulación de productos: integrado el 27 de noviembre de 2026
+
+`POST /v1/ops/locations/{location}/orders/{order}/cancel-items` requiere `pos.orders.cancel`.
+La selección por pulsación larga permite marcar líneas enviadas, en preparación o listas; las servidas y anuladas no se seleccionan.
+Se envían los IDs reales de todas las unidades de cada línea marcada, el motivo obligatorio de 3 a 255 caracteres,
+la versión vista al abrir la confirmación y un UUID de operación. Por ahora no hay selector de cantidad para anular solo parte de una línea agrupada.
+
+La decisión completa se persiste antes de enviarla. Ante timeout, red o respuesta incierta aparece «Confirmar anulación pendiente»;
+el reintento conserva exactamente UUID, motivo, versión y unidades, incluso tras reiniciar.
+No se permiten otros envíos ni anulación completa mientras esa decisión está pendiente.
+Se valida el recibo y se consulta el detalle existente para actualizar productos, precios, historial y ocupación con datos del servidor.
+No se interpretan campos internos de `units`, porque el ejemplo recibido contiene objetos vacíos.
+Un conflicto de versión no se reintenta con otra versión automáticamente: se actualiza el detalle y se exige una nueva selección/decisión.
+Si el servidor anula la atención al no quedar unidades vigentes, su detalle libera la ocupación remota; el borrador adicional sigue local.
+Esta sección reemplaza los pendientes CU-10 y CU-11 y la restricción anterior de no habilitar anulación parcial.
+
 Todas las rutas llevan Bearer Ops y X-Business-Id. El local procede del contexto autorizado. Los IDs, nombres y precios de las muestras no se usan como datos fijos.
 
 | Método y ruta | Uso | Permisos |

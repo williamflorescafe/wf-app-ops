@@ -44,7 +44,8 @@ internal fun HomeScreen(
     onRetry: () -> Unit,
     onOpenOrder: (RegisteredOrder) -> Unit,
     ordersAvailable: Boolean = true,
-    onNotifications: () -> Unit = {}
+    onNotifications: () -> Unit = {},
+    refreshWarning: Boolean = false
 ) {
     val scheme = MaterialTheme.colorScheme
     val displayName = remember(employeeName) {
@@ -92,6 +93,10 @@ internal fun HomeScreen(
                 onSelect = { onFilter(HomeOrderFilter.entries[it]) },
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+        if (refreshWarning) item {
+            com.example.wfappops.ui.components.InlineMessage(stringResource(R.string.orders_cached_warning),
+                com.example.wfappops.ui.theme.StatusTone.WARNING)
         }
         if (!ordersAvailable) item {
             com.example.wfappops.ui.components.EmptyState(

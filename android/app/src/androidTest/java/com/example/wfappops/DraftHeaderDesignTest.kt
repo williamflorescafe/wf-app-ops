@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.wfappops.home.model.HomeOrderFilter
@@ -36,7 +36,7 @@ class DraftHeaderDesignTest {
         capture("ops-numbered-draft-card.png")
     }
 
-    @Test fun noteLivesInHeaderAndCollapsedDraftShowsTheSumOfUnits() {
+    @Test fun noteLivesInHeaderAndProductsStayVisible() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext
         val note = "Quiero que todos los platos salgan al mismo tiempo."
         compose.setContent { WfTheme { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -44,19 +44,16 @@ class DraftHeaderDesignTest {
                 OrderLine("Latte", 1, 1200, options = listOf("null"), note = "Temperatura media.", kitchenStatus = KitchenItemStatus.IN_PREPARATION),
                 OrderLine("Cheesecake", 1, 1800, note = "Con salsa de frutos rojos.", kitchenStatus = KitchenItemStatus.READY)
             ), note = note), 1, false, false, emptySet(), {}, null)
-            OrderDraftCard(2, listOf(OrderLine("Americano", 3, 1400), OrderLine("Postre", 2, 900)),
-                false, 0, 0, {}, { _, _ -> }, onComment = {}, time = "5:00 p. m.")
+            OrderDraftCard(listOf(OrderLine("Americano", 3, 1400), OrderLine("Postre", 2, 900)),
+                false, 0, {}, { _, _ -> }, onComment = {}, time = "5:00 p. m.")
         } } }
         compose.onNodeWithText(note).assertIsDisplayed()
         compose.onNodeWithText(app.getString(R.string.order_add_round_note)).assertIsDisplayed()
         compose.onNodeWithText("Producto").assertDoesNotExist()
         compose.onNodeWithText("null").assertDoesNotExist()
         capture("ops-round-note-header-expanded.png")
-        compose.onNodeWithContentDescription(app.getString(R.string.order_collapse_dispatch,
-            app.getString(R.string.order_draft_status))).performClick()
-        compose.onNodeWithText(app.resources.getQuantityString(R.plurals.order_draft_units, 5, 5L)).assertIsDisplayed()
-        compose.onNodeWithText("Americano").assertDoesNotExist()
-        capture("ops-round-note-header-collapsed.png")
+        compose.onNodeWithText("Americano").assertIsDisplayed()
+        compose.onNodeWithText("Postre").assertIsDisplayed()
     }
 
     private fun capture(name: String) {

@@ -1,7 +1,7 @@
 package com.example.wfappops.auth.view
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,12 +10,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -29,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -37,7 +33,6 @@ import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.example.wfappops.R
 import com.example.wfappops.auth.model.TeamBusiness
 import com.example.wfappops.auth.viewmodel.AccountNotice
@@ -49,7 +44,6 @@ import com.example.wfappops.ui.components.WfButton
 import com.example.wfappops.ui.components.WfButtonStyle
 import com.example.wfappops.ui.components.WfTextField
 import com.example.wfappops.ui.theme.StatusTone
-import com.example.wfappops.ui.theme.WfRadius
 import com.example.wfappops.ui.theme.WfSpacing
 
 @Composable
@@ -60,7 +54,8 @@ internal fun AccountAccessScreen(
     onLogin: () -> Unit,
     onSelectBusiness: (TeamBusiness) -> Unit,
     onRetry: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    launching: Boolean
 ) {
     when {
         state.restoring -> OpsScaffold {
@@ -69,7 +64,7 @@ internal fun AccountAccessScreen(
             }
         }
         state.signedIn -> OpsScaffold { BusinessScreen(state, onSelectBusiness, onRetry, onLogout) }
-        else -> LoginScreen(state, onUpdateEmail, onUpdatePassword, onLogin)
+        else -> LoginScreen(state, onUpdateEmail, onUpdatePassword, onLogin, launching)
     }
 }
 
@@ -78,7 +73,8 @@ private fun LoginScreen(
     state: AccountUiState,
     onUpdateEmail: (String) -> Unit,
     onUpdatePassword: (String) -> Unit,
-    onLogin: () -> Unit
+    onLogin: () -> Unit,
+    launching: Boolean
 ) {
     val scheme = MaterialTheme.colorScheme
     val focusManager = LocalFocusManager.current
@@ -86,81 +82,61 @@ private fun LoginScreen(
         focusManager.clearFocus()
         onLogin()
     }
-    Column(
-        modifier = Modifier.fillMaxSize().background(scheme.surfaceContainerLowest)
-            .verticalScroll(rememberScrollState()).imePadding()
-    ) {
-        Box(Modifier.fillMaxWidth().background(scheme.primary).statusBarsPadding()) {
-            Image(
-                painter = painterResource(R.drawable.brand_logo_portrait_light),
-                contentDescription = stringResource(R.string.auth_brand),
-                modifier = Modifier.align(Alignment.Center).padding(vertical = WfSpacing.xl).height(152.dp)
-            )
-            if (state.isStaging) {
-                StatusChip(
-                    stringResource(R.string.auth_staging), StatusTone.WARNING,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(WfSpacing.lg)
-                )
-            }
-        }
-        Column(
-            modifier = Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = WfRadius.xl, topEnd = WfRadius.xl))
-                .background(scheme.surfaceContainerLowest)
-                .padding(horizontal = WfSpacing.xl, vertical = WfSpacing.xxl).navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(WfSpacing.lg)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)) {
+    LoginSheetLayout(launching) {
+        Column(verticalArrangement = Arrangement.spacedBy(WfSpacing.sm)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(stringResource(R.string.auth_welcome), style = MaterialTheme.typography.headlineMedium)
-                Text(
-                    stringResource(R.string.auth_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = scheme.onSurfaceVariant
-                )
+                if (state.isStaging) StatusChip(stringResource(R.string.auth_staging), StatusTone.WARNING)
             }
-            Notice(state.notice)
-            WfTextField(
-                value = state.email,
-                onValueChange = onUpdateEmail,
-                label = stringResource(R.string.auth_email),
-                placeholder = stringResource(R.string.auth_email_placeholder),
-                leadingIcon = R.drawable.ic_mail,
-                errorMessage = state.emailError,
-                enabled = !state.loading,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Next,
-                    autoCorrectEnabled = false
-                ),
-                modifier = Modifier.semantics { contentType = ContentType.EmailAddress + ContentType.Username }
-            )
-            WfTextField(
-                value = state.password,
-                onValueChange = onUpdatePassword,
-                label = stringResource(R.string.auth_password),
-                placeholder = stringResource(R.string.auth_password_placeholder),
-                leadingIcon = R.drawable.ic_lock,
-                isPassword = true,
-                errorMessage = state.passwordError,
-                enabled = !state.loading,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { submit() }),
-                modifier = Modifier.semantics { contentType = ContentType.Password }
-            )
-            Spacer(Modifier.height(WfSpacing.xs))
-            WfButton(
-                text = stringResource(R.string.auth_login),
-                onClick = submit,
-                isLoading = state.loading,
-                fullWidth = true
-            )
             Text(
-                text = stringResource(R.string.auth_version, state.appVersion),
-                style = MaterialTheme.typography.labelSmall,
-                color = scheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = WfSpacing.sm)
+                stringResource(R.string.auth_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = scheme.onSurfaceVariant
             )
         }
+        Notice(state.notice)
+        WfTextField(
+            value = state.email,
+            onValueChange = onUpdateEmail,
+            label = stringResource(R.string.auth_email),
+            labelInside = true,
+            leadingIcon = R.drawable.ic_mail,
+            errorMessage = state.emailError,
+            enabled = !state.loading,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Next,
+                autoCorrectEnabled = false
+            ),
+            modifier = Modifier.semantics { contentType = ContentType.EmailAddress + ContentType.Username }
+        )
+        WfTextField(
+            value = state.password,
+            onValueChange = onUpdatePassword,
+            label = stringResource(R.string.auth_password),
+            labelInside = true,
+            leadingIcon = R.drawable.ic_lock,
+            isPassword = true,
+            errorMessage = state.passwordError,
+            enabled = !state.loading,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { submit() }),
+            modifier = Modifier.semantics { contentType = ContentType.Password }
+        )
+        Spacer(Modifier.height(WfSpacing.xs))
+        WfButton(
+            text = stringResource(R.string.auth_login),
+            onClick = submit,
+            isLoading = state.loading,
+            fullWidth = true
+        )
+        Text(
+            text = stringResource(R.string.auth_version, state.appVersion),
+            style = MaterialTheme.typography.labelSmall,
+            color = scheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = WfSpacing.sm)
+        )
     }
 }
 

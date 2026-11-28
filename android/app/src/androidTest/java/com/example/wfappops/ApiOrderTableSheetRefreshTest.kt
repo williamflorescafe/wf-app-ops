@@ -3,10 +3,13 @@ package com.example.wfappops
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasProgressBarRangeInfo
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
@@ -39,7 +42,7 @@ class ApiOrderTableSheetRefreshTest {
             WfTheme {
                 ApiOrderTableSheet(state.value, onLoad = { locationId, refresh ->
                     assertEquals("10", locationId)
-                    if (refresh) { refreshes++; state.value = state.value.copy(tablesLoading = true) }
+                    if (refresh) { refreshes++; state.value = state.value.copy(tablesLoading = true, tablesUserRefreshing = true) }
                 }, onDismiss = { dismissals++ }, onSelect = {})
             }
         }
@@ -52,5 +55,19 @@ class ApiOrderTableSheetRefreshTest {
             assertEquals(1, refreshes)
             assertEquals(0, dismissals)
         }
+    }
+
+    @Test fun cachedTablesStayVisibleWithoutSpinnerDuringAutomaticRefresh() {
+        val location = TeamLocation("Local", "LOC-01", "10")
+        val state = mutableStateOf(OrderUiState(table = null, locations = listOf(location), selectedLocationId = "10",
+            apiTables = Result.success(LocationTables(location, listOf(TableArea("20", "Salón 1",
+                listOf(AvailableTable("900", "M01", "Mesa salón", 4))))))))
+        compose.setContent { WfTheme { ApiOrderTableSheet(state.value, { _, _ -> }, {}, {}) } }
+        compose.onNodeWithText("Mesa salón").assertIsDisplayed()
+        compose.runOnIdle { state.value = state.value.copy(tablesLoading = true, tablesUserRefreshing = false) }
+        compose.onNodeWithText("Mesa salón").assertIsDisplayed()
+        compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(0)
+        compose.runOnIdle { state.value = state.value.copy(tablesLoading = false) }
+        compose.onNodeWithText("Mesa salón").assertIsDisplayed()
     }
 }

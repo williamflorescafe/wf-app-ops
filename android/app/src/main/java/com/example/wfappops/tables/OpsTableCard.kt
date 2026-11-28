@@ -108,6 +108,8 @@ internal fun OpsTableCard(
     }
     val colors = CardDefaults.cardColors(
         containerColor = if (stateColor == OperationalStateColor.GREEN) scheme.primaryContainer else Color.White,
+        disabledContainerColor = if (stateColor == OperationalStateColor.GREEN) scheme.primaryContainer else Color.White,
+        disabledContentColor = scheme.onPrimaryContainer,
         contentColor = scheme.onPrimaryContainer
     )
     val border = BorderStroke(1.dp, scheme.primary.copy(alpha = 0.12f))

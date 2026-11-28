@@ -2,4 +2,12 @@
 <resources>
 
     <style name="Theme.WFAppOps" parent="android:Theme.Material.Light.NoActionBar" />
+    <color name="launch_olive">#616D38</color>
+    <color name="launch_cream">#FEEEDA</color>
+
+    <style name="Theme.WFAppOps.Launch" parent="Theme.WFAppOps">
+        <item name="android:windowBackground">@color/launch_olive</item>
+        <item name="android:statusBarColor">@color/launch_olive</item>
+        <item name="android:navigationBarColor">@color/launch_olive</item>
+    </style>
 </resources>

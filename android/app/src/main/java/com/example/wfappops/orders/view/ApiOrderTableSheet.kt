@@ -17,7 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -46,7 +46,7 @@ internal fun ApiOrderTableSheet(
     val layout = state.apiTables?.getOrNull()
     ModalBottomSheet(
         onDismissRequest = { if (!state.busy && !state.tablesLoading) onDismiss() },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
+        sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
             confirmValueChange = { target -> target != SheetValue.Hidden || !state.busy && !state.tablesLoading })
     ) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.85f).padding(horizontal = WfSpacing.lg),
@@ -61,7 +61,7 @@ internal fun ApiOrderTableSheet(
             )
             OrderSearchField(search, stringResource(R.string.tables_search_name_code), Modifier.fillMaxWidth())
             WfRefreshContainer(
-                isRefreshing = state.tablesLoading,
+                isRefreshing = state.tablesLoading && (state.tablesUserRefreshing || layout == null),
                 onRefresh = { onLoad(state.selectedLocationId, true) },
                 enabled = !state.busy && state.locations.isNotEmpty(),
                 modifier = Modifier.weight(1f).fillMaxWidth()

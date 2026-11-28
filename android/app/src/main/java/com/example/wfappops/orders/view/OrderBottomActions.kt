@@ -25,7 +25,7 @@ import com.example.wfappops.ui.theme.ColorTokens
 internal fun OrderBottomActions(
     busy: Boolean, hasDraft: Boolean, hasDispatches: Boolean, selectedCount: Int?,
     onAdd: () -> Unit, onSend: () -> Unit, onCancelLines: () -> Unit,
-    addingEnabled: Boolean = true, sendingEnabled: Boolean = true
+    addingEnabled: Boolean = true, sendingEnabled: Boolean = true, selectingDraft: Boolean = false
 ) {
     Box(Modifier.fillMaxWidth()
         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
@@ -40,13 +40,14 @@ internal fun OrderBottomActions(
                 border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.9f)), shadowElevation = 6.dp) {
                 Row(Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.spacedBy(WfSpacing.sm),
                     verticalAlignment = Alignment.CenterVertically) {
-                    OrderActionIcon(WfIcons.AddProduct,
-                        stringResource(if (!hasDraft && hasDispatches) R.string.order_new_dispatch else R.string.order_add_products),
+                    OrderActionIcon(if (selectingDraft) null else WfIcons.AddProduct,
+                        stringResource(if (selectingDraft) R.string.tables_cancel else if (!hasDraft && hasDispatches) R.string.order_new_dispatch else R.string.order_add_products),
                         onAdd, enabled = !busy && addingEnabled, primary = false, modifier = Modifier.weight(1f),
-                        visibleLabel = stringResource(R.string.order_products_cta))
+                        visibleLabel = stringResource(if (selectingDraft) R.string.tables_cancel else R.string.order_products_cta))
                     OrderActionIcon(WfIcons.SendToKitchen,
                         stringResource(R.string.order_send), onSend, enabled = hasDraft && !busy && sendingEnabled,
-                        primary = true, loading = busy && hasDraft, modifier = Modifier.weight(1f))
+                        primary = true, loading = busy && hasDraft, modifier = Modifier.weight(1f),
+                        visibleLabel = stringResource(R.string.order_send_action))
                 }
             }
         }
@@ -55,7 +56,7 @@ internal fun OrderBottomActions(
 
 @Composable
 private fun OrderActionIcon(
-    icon: Int, label: String, onClick: () -> Unit, enabled: Boolean, primary: Boolean,
+    icon: Int?, label: String, onClick: () -> Unit, enabled: Boolean, primary: Boolean,
     modifier: Modifier = Modifier, loading: Boolean = false, visibleLabel: String? = null
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -73,8 +74,9 @@ private fun OrderActionIcon(
         )) {
         if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = foreground, strokeWidth = 2.dp)
         else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(WfSpacing.sm)) {
-            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(24.dp))
+            if (!primary) icon?.let { Icon(painterResource(it), contentDescription = null, modifier = Modifier.size(24.dp)) }
             visibleLabel?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            if (primary) icon?.let { Icon(painterResource(it), contentDescription = null, modifier = Modifier.size(24.dp)) }
         }
     }
 }

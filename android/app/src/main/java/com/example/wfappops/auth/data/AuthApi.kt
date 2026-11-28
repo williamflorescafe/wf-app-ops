@@ -1,8 +1,8 @@
 package com.example.wfappops.auth.data
 
+import com.example.wfappops.core.model.ApiException
 import android.content.Context
 import android.content.pm.ApplicationInfo
-import android.net.Uri
 import android.os.Build
 import android.util.Log
 import com.example.wfappops.auth.model.TeamBusiness
@@ -13,7 +13,6 @@ import com.example.wfappops.tables.LocationTables
 import com.example.wfappops.tables.TableArea
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.IOException
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
@@ -39,12 +38,12 @@ internal class AuthApi(context: Context) {
     }
 
     fun parseLoginToken(response: String): String = decode { JSONObject(response).getJSONObject("data").getString("token") }
-        .takeIf { it.isNotBlank() && it != "null" } ?: throw AuthApiException()
+        .takeIf { it.isNotBlank() && it != "null" } ?: throw ApiException()
 
     fun profileEmail(token: String): String {
         val response = request("GET", "ops/me", token = token)
         return decode { JSONObject(response).getJSONObject("data").getString("email") }
-            .takeIf { it.isNotBlank() && it != "null" } ?: throw AuthApiException()
+            .takeIf { it.isNotBlank() && it != "null" } ?: throw ApiException()
     }
 
     fun businesses(token: String): List<TeamBusiness> {
@@ -74,7 +73,7 @@ internal class AuthApi(context: Context) {
             val business = data.getJSONObject("business")
             val employee = data.getJSONObject("employee")
             val businessId = business.getString("id")
-            if (expectedBusinessId != null && businessId != expectedBusinessId) throw AuthApiException()
+            if (expectedBusinessId != null && businessId != expectedBusinessId) throw ApiException()
             val locations = data.optJSONArray("locations")
             val permissions = data.optJSONArray("permissions")
             TeamBusinessContext(
@@ -111,7 +110,7 @@ internal class AuthApi(context: Context) {
     fun parseTables(response: String, expectedLocationId: String): LocationTables = decode {
         val data = JSONObject(response).getJSONObject("data")
         val location = data.getJSONObject("location")
-        if (location.getString("id") != expectedLocationId) throw AuthApiException()
+        if (location.getString("id") != expectedLocationId) throw ApiException()
         val areas = data.getJSONArray("areas")
         val parsed = LocationTables(
             TeamLocation(location.getString("name"), location.getString("code"), location.getString("id")),
@@ -128,14 +127,14 @@ internal class AuthApi(context: Context) {
         val tableIds = parsed.areas.flatMap { it.tables }.map { it.id }
         if (parsed.areas.map { it.id }.distinct().size != parsed.areas.size ||
             tableIds.distinct().size != tableIds.size || parsed.areas.any { area -> area.tables.any { it.seats < 0 } }
-        ) throw AuthApiException()
+        ) throw ApiException()
         parsed
     }
 
     fun logout(token: String) {
         try {
             request("POST", "ops/auth/logout", token = token)
-        } catch (exception: AuthApiException) {
+        } catch (exception: ApiException) {
             if (exception.status != 401) throw exception
         }
     }
@@ -147,9 +146,33 @@ internal class AuthApi(context: Context) {
 
     fun ordersRequest(token: String, businessId: String, path: String, method: String = "GET", body: JSONObject? = null): String {
         val id = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
-        require(Regex("ops/locations/[1-9][0-9]*/orders(?:/$id(?:/(?:rounds|cancel))?)?").matches(path))
+        require(Regex("ops/locations/[1-9][0-9]*/orders(?:/$id(?:/(?:rounds|cancel|cancel-items|closure-readiness|close|preparation/(?:start|ready|reopen)|delivery/(?:deliver|undo|confirm-legacy|revoke-legacy)))?)?").matches(path))
         require(method in setOf("GET", "POST"))
         return request(method, path, body, token, businessId)
+    }
+
+    fun fulfillmentRequest(token: String, businessId: String, locationId: String,
+                           stationId: String? = null, orderId: String? = null,
+                           cursor: String? = null, limit: Int = 100, status: String = "all"): String {
+        require(Regex("[1-9][0-9]*").matches(locationId))
+        require(stationId == null || orderId == null)
+        require(limit in setOf(25, 50, 100))
+        fun uuid(value: String): String = java.util.UUID.fromString(value).toString().also { require(it.equals(value, true)) }
+        val path = when {
+            orderId != null -> {
+                require(status in setOf("pending", "delivered", "all"))
+                "ops/locations/$locationId/orders/${uuid(orderId)}/delivery-units"
+            }
+            stationId != null -> {
+                require(status in setOf("work", "ready", "all"))
+                "ops/locations/$locationId/preparation-stations/${uuid(stationId)}/units"
+            }
+            else -> "ops/locations/$locationId/preparation-stations"
+        }
+        val query = mutableListOf<String>()
+        if (stationId != null || orderId != null) { query += "limit=$limit"; query += "status=$status" }
+        cursor?.let { query += "cursor=" + java.net.URLEncoder.encode(it, "UTF-8") }
+        return request("GET", path + if (query.isEmpty()) "" else "?" + query.joinToString("&"), token = token, businessId = businessId)
     }
 
     private fun request(
@@ -214,22 +237,15 @@ internal class AuthApi(context: Context) {
     private inline fun <T> decode(parse: () -> T): T = try {
         parse()
     } catch (_: JSONException) {
-        throw AuthApiException()
+        throw ApiException()
     }
 
-    private fun responseError(status: Int, body: JSONObject?): AuthApiException {
+    private fun responseError(status: Int, body: JSONObject?): ApiException {
         val errors = body?.optJSONObject("errors")
         val fieldErrors = errors?.keys()?.asSequence()?.mapNotNull { field ->
             errors.optJSONArray(field)?.optString(0)?.takeIf { it.isNotBlank() }?.let { field to it }
         }?.toMap().orEmpty()
         val message = body?.optString("message")?.takeIf { it.isNotBlank() && it != "null" }
-        return AuthApiException(status, message, fieldErrors, body?.optString("code"))
+        return ApiException(status, message, fieldErrors, body?.optString("code"))
     }
 }
-
-internal class AuthApiException(
-    val status: Int? = null,
-    val serverMessage: String? = null,
-    val fieldErrors: Map<String, String> = emptyMap(),
-    val code: String? = null
-) : IOException()

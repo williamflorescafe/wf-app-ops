@@ -6,7 +6,7 @@ import com.example.wfappops.R
 import com.example.wfappops.auth.ActiveOpsAccess
 import com.example.wfappops.auth.OpsAccess
 import com.example.wfappops.auth.data.AccountRepository
-import com.example.wfappops.auth.data.AuthApiException
+import com.example.wfappops.core.model.ApiException
 import com.example.wfappops.auth.data.StoredSession
 import com.example.wfappops.auth.model.TeamBusiness
 import com.example.wfappops.auth.model.TeamBusinessContext
@@ -42,6 +42,7 @@ internal data class AccountUiState(
     val selectedLocationId: String? = null,
     val tables: Result<LocationTables>? = null,
     val tablesLoading: Boolean = false,
+    val tablesUserRefreshing: Boolean = false,
     val tablesFetchedAt: Instant? = null
 )
 
@@ -62,7 +63,7 @@ internal class AccountViewModel(
             try {
                 val restored = repository.restoreSession()
                 session = restored?.session
-                state.update { it.copy(signedIn = session != null, profileEmail = restored?.let { Result.success(it.email) }) }
+                state.update { current -> current.copy(signedIn = session != null, profileEmail = restored?.let { Result.success(it.email) }) }
                 loadBusinessAccess()
             } finally {
                 state.update { it.copy(restoring = false) }
@@ -148,8 +149,9 @@ internal class AccountViewModel(
         state.update {
             it.copy(
                 selectedLocationId = locationId,
-                tables = current.tables.takeIf { refresh && current.selectedLocationId == locationId && it?.isSuccess == true },
+                tables = current.tables.takeIf { cached -> current.selectedLocationId == locationId && cached?.isSuccess == true },
                 tablesLoading = true,
+                tablesUserRefreshing = refresh,
                 tablesFetchedAt = null
             )
         }
@@ -160,7 +162,7 @@ internal class AccountViewModel(
                 Result.success(repository.tables(active, context.businessId, locationId, refresh))
             } catch (error: IOException) {
                 if (!stillCurrent()) return@launch
-                if (error is AuthApiException && error.status == 401) {
+                if (error is ApiException && error.status == 401) {
                     clearSession()
                     notify(R.string.auth_session_expired, isError = false)
                     return@launch
@@ -168,7 +170,7 @@ internal class AccountViewModel(
                 Result.failure(error)
             }
             if (stillCurrent()) state.update {
-                it.copy(tables = result, tablesLoading = false, tablesFetchedAt = if (result.isSuccess) Instant.now() else null)
+                it.copy(tables = result, tablesLoading = false, tablesUserRefreshing = false, tablesFetchedAt = if (result.isSuccess) Instant.now() else null)
             }
         }
     }
@@ -181,7 +183,7 @@ internal class AccountViewModel(
             val result = try {
                 Result.success(repository.profileEmail(active))
             } catch (error: IOException) {
-                if (error is AuthApiException && error.status == 401 && session === active) {
+                if (error is ApiException && error.status == 401 && session === active) {
                     runWork {
                         clearSession()
                         notify(R.string.auth_session_expired, isError = false)
@@ -208,7 +210,7 @@ internal class AccountViewModel(
                 val (verified, saved) = repository.validateBusiness(active)
                 activateBusiness(verified, saved)
                 return
-            } catch (error: AuthApiException) {
+            } catch (error: ApiException) {
                 if (error.status in 500..599 && cached?.canRestoreOffline(Instant.now()) == true) {
                     confirmBusiness(cached.context)
                     return
@@ -245,7 +247,7 @@ internal class AccountViewModel(
         viewModelScope.launch {
             try {
                 block()
-            } catch (error: AuthApiException) {
+            } catch (error: ApiException) {
                 if (state.value.signedIn && error.status == 401) {
                     clearSession()
                     notify(R.string.auth_session_expired, isError = false)
@@ -264,7 +266,7 @@ internal class AccountViewModel(
         }
     }
 
-    private fun showError(error: AuthApiException) {
+    private fun showError(error: ApiException) {
         if (!state.value.signedIn && error.status == 422) {
             val emailError = error.fieldErrors["email"]
             val passwordError = error.fieldErrors["password"]

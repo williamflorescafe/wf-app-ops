@@ -109,7 +109,11 @@ internal data class TableVisit(
     val remoteCanceledAt: Instant? = null,
     val remoteCancelReason: String? = null,
     val localKitchenStatuses: Map<String, LocalKitchenStatus> = emptyMap(),
-    val localDraftNumber: Int? = null
+    val localDraftNumber: Int? = null,
+    val pendingCancellation: String? = null,
+    val remoteFulfillment: Map<String, String> = emptyMap(),
+    val pendingPreparation: String? = null,
+    val pendingClose: String? = null
 ) {
     val isDiscardedDraft get() = closed && orderNumber != null && draft.isEmpty() && dispatches.isEmpty()
     val hasRecordedProducts get() = (remoteUnitsCount ?: 0) > 0 || draft.any { it.quantity > 0 } || dispatches.any { dispatch -> dispatch.lines.any { it.quantity > 0 } }
@@ -500,3 +504,6 @@ internal fun List<OrderLine>.editNote(line: OrderLine, note: String?): List<Orde
     if (current.note == note) return this
     return filterNot { it.matchesCartLine(current) }.addCartLine(current.copy(note = note))
 }
+
+internal fun OrderLine.canCancelUnitSelection(): Boolean = if (remoteUnitIds.isEmpty()) canCancel
+    else remoteUnitIds.size == quantity && dispatchStatus !in setOf(KitchenItemStatus.DELIVERED, KitchenItemStatus.CANCELED)

@@ -1,8 +1,8 @@
 package com.example.wfappops.auth.data
 
+import com.example.wfappops.core.model.ApiException
 import android.content.Context
 import android.net.ConnectivityManager
-import com.example.wfappops.auth.model.TeamBusinessContext
 import com.example.wfappops.schedule.ScheduleCache
 import java.io.IOException
 import java.security.GeneralSecurityException
@@ -34,7 +34,7 @@ internal class AccountRepository(context: Context) {
         // La caché de contexto nunca sustituye la validación del token al arrancar.
         try {
             RestoredAccount(active, api.profileEmail(active.token))
-        } catch (error: AuthApiException) {
+        } catch (error: ApiException) {
             if (error.status == 401) {
                 store.clear()
                 menuCache.clear()
@@ -65,9 +65,6 @@ internal class AccountRepository(context: Context) {
     }
 
     suspend fun businesses(active: StoredSession) = withContext(Dispatchers.IO) { api.businesses(active.token) }
-
-    suspend fun businessContext(active: StoredSession, businessId: String) =
-        withContext(Dispatchers.IO) { api.businessContext(active.token, businessId) }
 
     suspend fun forgetBusiness(active: StoredSession) = withContext(Dispatchers.IO) {
         menuCache.clear()
@@ -118,9 +115,9 @@ internal class AccountRepository(context: Context) {
             check(active.businessId == businessId && context.businessId == businessId)
             if ("pos.menus.view" !in context.permissions) {
                 if (isStaging) android.util.Log.w("OpsMenuAccess", "Context denies pos.menus.view after revalidation")
-                throw AuthApiException(403, code = "client.menu_permission_missing")
+                throw ApiException(403, code = "client.menu_permission_missing")
             }
-            if (context.locations.none { it.id == locationId }) throw AuthApiException(403, code = "client.menu_location_denied")
+            if (context.locations.none { it.id == locationId }) throw ApiException(403, code = "client.menu_location_denied")
             val scope = org.json.JSONArray(listOf(businessId, context.employeeId, context.membershipId,
                 context.accessVersion, locationId)).toString()
             menuCache.get(scope, locationId, refresh, stillAuthorized = {

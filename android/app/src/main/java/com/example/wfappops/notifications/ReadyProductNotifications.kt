@@ -33,7 +33,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.retryWhen
 
 @Composable
-internal fun ReadyProductNotifications(recipient: ReadyNotificationRecipient?) {
+internal fun ReadyProductNotifications(recipient: ReadyNotificationRecipient?, allowPermissionPrompt: Boolean = true) {
     val context = LocalContext.current.applicationContext
     val notifier = remember(context) { ReadyProductNotifier(context) }
     val owner = LocalLifecycleOwner.current
@@ -44,7 +44,10 @@ internal fun ReadyProductNotifications(recipient: ReadyNotificationRecipient?) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { enabled = notifier.enabled() }
     LaunchedEffect(notifier, recipient) {
         notifier.selectRecipient(recipient)
-        if (recipient != null && notifier.shouldRequestPermission()) {
+    }
+    LaunchedEffect(notifier, recipient, allowPermissionPrompt) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            allowPermissionPrompt && recipient != null && notifier.shouldRequestPermission()) {
             permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }

@@ -33,7 +33,6 @@ import com.example.wfappops.home.model.HomeOrderFilter
 import com.example.wfappops.home.model.productsFor
 import com.example.wfappops.ui.components.WfFilterChips
 import com.example.wfappops.orders.view.OrderSearchField
-import com.example.wfappops.orders.model.RegisteredOrderStatus
 import com.example.wfappops.ui.theme.WfSpacing
 import com.example.wfappops.ui.theme.WfThemeExtras
 import java.time.LocalDate
@@ -45,7 +44,8 @@ internal fun OrderHistoryScreen(
     day: LocalDate,
     onRetry: () -> Unit,
     canOpenOrder: Boolean,
-    onOpenOrder: (RegisteredOrder) -> Unit
+    onOpenOrder: (RegisteredOrder) -> Unit,
+    refreshWarning: Boolean = false
 ) {
     val search = rememberTextFieldState()
     val query = search.text.toString().trim()
@@ -60,6 +60,9 @@ internal fun OrderHistoryScreen(
         order.hasDisplayableProducts && matchesStatus && (query.isEmpty() || number.contains(query, true) || table.contains(query, true))
     } }
     Column(Modifier.fillMaxSize().background(WfThemeExtras.operationsBackground)) {
+        if (refreshWarning) com.example.wfappops.ui.components.InlineMessage(
+            stringResource(R.string.orders_cached_warning), com.example.wfappops.ui.theme.StatusTone.WARNING,
+            Modifier.padding(horizontal = WfSpacing.lg))
         WfScreenTitle(stringResource(R.string.ops_orders), stringResource(R.string.orders_last_two_days))
         OrderSearchField(search, stringResource(R.string.orders_search),
             Modifier.fillMaxWidth().padding(horizontal = WfSpacing.lg, vertical = WfSpacing.sm))
